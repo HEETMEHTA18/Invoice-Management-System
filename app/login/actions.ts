@@ -9,6 +9,7 @@ export async function handleEmailSignIn(formData: FormData) {
   try {
     await signIn("nodemailer", {
       email,
+      callbackUrl: "/dashboard",
       redirect: false,
     })
     // After sending email, redirect to a verification page

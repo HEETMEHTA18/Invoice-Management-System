@@ -3,9 +3,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { handleEmailSignIn } from "./actions";
+import { auth } from "@/app/utils/auth";
+import { redirect } from "next/navigation";
 
 export default async function Login({ searchParams }: { searchParams: Promise<{ verify?: string }> })
 {
+    const session = await auth()
+    if (session?.user) {
+        redirect("/dashboard")
+    }
+
     const params = await searchParams
     const isVerifying = params?.verify === "true"
 
