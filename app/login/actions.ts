@@ -2,6 +2,7 @@
 
 import { signIn } from "@/app/utils/auth"
 import { redirect } from "next/navigation"
+import { isRedirectError } from "next/dist/client/components/redirect-error"
 
 export async function handleEmailSignIn(formData: FormData) {
   const email = formData.get("email") as string
@@ -12,10 +13,15 @@ export async function handleEmailSignIn(formData: FormData) {
       callbackUrl: "/dashboard",
       redirect: false,
     })
-    // After sending email, redirect to a verification page
-    redirect("/login?verify=true")
   } catch (error) {
+    // Re-throw redirect errors (they're not actual errors)
+    if (isRedirectError(error)) {
+      throw error
+    }
     console.error("Sign in error:", error)
     throw error
   }
+
+  // Move redirect outside try/catch to avoid catching redirect "error"
+  redirect("/verify")
 }
