@@ -1,10 +1,18 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/utils/db";
-import yaml from "js-yaml";
+import * as yaml from "js-yaml";
+
+import { auth } from "@/app/utils/auth";
 
 export async function POST(req: Request) {
     try {
+        const session = await auth();
+        // Fetch settings if user is authenticated
+        const settings = session?.user?.id ? await prisma.companySettings.findUnique({
+            where: { userId: session.user.id }
+        }) : null;
+
         const text = await req.text();
         let data;
 
@@ -69,9 +77,33 @@ export async function POST(req: Request) {
 
                 const total = subtotal + tax;
 
+                // Find customer if exists
+                let customerId = null;
+                if (txn.party_ledger) {
+                    const customer = await prisma.customer.findUnique({
+                        where: { name: txn.party_ledger }
+                    });
+                    if (customer) customerId = customer.id;
+                }
+
+                // Check for duplicate invoice number
+                const invoiceNumber = txn.invoice_no;
+                if (invoiceNumber) {
+                    const existingInvoice = await prisma.invoice.findFirst({
+                        where: { invoiceNumber: invoiceNumber }
+                    });
+                    if (existingInvoice) {
+                        console.log(`Skipping duplicate invoice: ${invoiceNumber}`);
+                        continue;
+                    }
+                }
+
                 const invoice = await prisma.invoice.create({
                     data: {
                         invoiceNumber: txn.invoice_no || `INV-${Date.now()}`,
+                        senderName: settings?.name || "Shiv Hardware",
+                        senderEmail: settings?.email || "shivhardware@gmail.com",
+                        senderAddress: settings?.address || "Shiv Hardware, Nadiad",
                         clientName: txn.party_ledger || "Unknown Client",
                         date: date,
                         status: "Pending", // Default status
@@ -82,6 +114,7 @@ export async function POST(req: Request) {
                         // Use legacy fields for compatibility if needed, or map properly
                         customer: txn.party_ledger || "Unknown Client",
                         amount: total,
+                        customerId: customerId,
                         items: {
                             create: items
                         }

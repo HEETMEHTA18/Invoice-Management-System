@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { InvoiceList } from "./InvoiceList";
+import { generateInvoicePDF } from "@/app/utils/pdfGenerator";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -51,6 +52,8 @@ export default function InvoicesPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const customerFileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const fetchInvoices = useCallback(async () => {
@@ -72,6 +75,40 @@ export default function InvoicesPage() {
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
+
+  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>, type: 'invoice' | 'customer') {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const endpoint = type === 'customer' ? "/api/customers/bulk-import" : "/api/invoices/bulk-import";
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      setIsLoading(true);
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          body: content,
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert(`Import successful: ${result.createdCount} records created.`);
+          if (type === 'invoice') fetchInvoices();
+        } else {
+          alert(`Import failed: ${result.error || "Unknown error"}`);
+        }
+      } catch (err) {
+        alert("Import failed. See console.");
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        if (customerFileInputRef.current) customerFileInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
+  }
 
   // Filter & search
   useEffect(() => {
@@ -136,18 +173,31 @@ export default function InvoicesPage() {
     }
   }
 
+  const [settings, setSettings] = useState<{ logo: string | null; signature: string | null } | undefined>();
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => setSettings(data))
+      .catch(() => console.error("Failed to load settings"));
+  }, []);
+
   function handleDownload(inv: Invoice) {
-    // Navigate to create page with pre-filled data for PDF generation
-    alert(`Download for invoice ${inv.invoiceNumber || `#${inv.id}`}`);
+    try {
+      console.log("Downloading invoice:", inv);
+      generateInvoicePDF(inv, settings);
+    } catch (e) {
+      console.error("PDF Generation Error:", e);
+      alert("Failed to generate PDF");
+    }
   }
 
   function handleEdit(inv: Invoice) {
-    // For now, navigate to the invoice detail
-    alert(`Edit invoice ${inv.invoiceNumber || `#${inv.id}`}`);
+    router.push(`/dashboard/invoices/create?invoiceId=${inv.id}`);
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-6">
+    <div className="max-w-6xl mx-auto py-6 px-4 md:px-6">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -159,13 +209,45 @@ export default function InvoicesPage() {
             <p className="text-sm text-gray-500">Manage and track all your invoices</p>
           </div>
         </div>
-        <Button
-          onClick={() => router.push("/dashboard/invoices/create")}
-          className="bg-gray-900 hover:bg-gray-800 text-white font-medium px-5 py-2.5 rounded-lg flex items-center gap-2 shadow-sm"
-        >
-          <Plus className="h-4 w-4" />
-          Create Invoice
-        </Button>
+        <div className="flex gap-2">
+          <input
+            type="file"
+            accept=".yml,.yaml,.json"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={(e) => handleBulkImport(e, 'invoice')}
+          />
+          <input
+            type="file"
+            accept=".yml,.yaml,.json"
+            className="hidden"
+            ref={customerFileInputRef}
+            onChange={(e) => handleBulkImport(e, 'customer')}
+          />
+          <Button
+            onClick={() => customerFileInputRef.current?.click()}
+            className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm"
+            disabled={isLoading}
+          >
+            <FileText className="h-4 w-4" />
+            Import Customers
+          </Button>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm"
+            disabled={isLoading}
+          >
+            <FileText className="h-4 w-4" />
+            Import Invoices
+          </Button>
+          <Button
+            onClick={() => router.push("/dashboard/invoices/create")}
+            className="bg-gray-900 hover:bg-gray-800 text-white font-medium px-5 py-2.5 rounded-lg flex items-center gap-2 shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Create Invoice
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}

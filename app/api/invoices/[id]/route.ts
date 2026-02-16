@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/app/utils/db";
 
 // GET: Get a single invoice with items
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const invoice = await prisma.invoice.findUnique({
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PUT: Update an invoice (using PUT as it replaces the resource conceptually if we replace items)
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const data = await req.json();
@@ -61,7 +61,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // DELETE: Delete an invoice
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     await prisma.invoice.delete({ where: { id: Number(id) } });
@@ -69,5 +69,22 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   } catch (error) {
     console.error("Failed to delete invoice:", error);
     return NextResponse.json({ error: "Failed to delete invoice" }, { status: 500 });
+  }
+}
+
+// PATCH: Partial update (e.g., status)
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const data = await req.json();
+
+    const invoice = await prisma.invoice.update({
+      where: { id: Number(id) },
+      data: data,
+    });
+    return NextResponse.json(invoice);
+  } catch (error) {
+    console.error("Failed to update invoice:", error);
+    return NextResponse.json({ error: "Failed to update invoice" }, { status: 500 });
   }
 }

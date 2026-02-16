@@ -15,7 +15,11 @@ export function InvoiceActions({ invoice, onEdit, onDelete, onMarkPaid, onRemind
         <DropdownMenuItem onClick={onEdit}>
           <Pencil className="w-4 h-4 mr-2" /> Edit Invoice
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onDownload}>
+        <DropdownMenuItem onClick={(e) => {
+          e.preventDefault(); // Keep menu open or prevent navigation? No, just good practice sometimes.
+          // Actually, we want the menu to close.
+          onDownload();
+        }}>
           <Download className="w-4 h-4 mr-2" /> Download Invoice
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onReminder}>

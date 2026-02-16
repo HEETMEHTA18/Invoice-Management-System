@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MobileMenu } from "./components/MobileMenu";
 import { auth } from "./utils/auth";
 import {
   FileText,
@@ -75,6 +76,7 @@ export default async function Home() {
                   </Link>
                 </>
               )}
+              <MobileMenu />
             </div>
           </div>
         </div>
@@ -218,8 +220,8 @@ export default async function Home() {
                           <span className="text-sm font-semibold text-[#596778]">{inv.amount}</span>
                           <span
                             className={`text-xs font-medium px-2 py-0.5 rounded-full ${inv.status === "Paid"
-                                ? "bg-green-50 text-green-600"
-                                : "bg-yellow-50 text-yellow-600"
+                              ? "bg-green-50 text-green-600"
+                              : "bg-yellow-50 text-yellow-600"
                               }`}
                           >
                             {inv.status}

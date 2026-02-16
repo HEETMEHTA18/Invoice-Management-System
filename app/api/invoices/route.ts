@@ -42,12 +42,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Calculate totals
-    const subtotal = items.reduce(
+    const itemsSum = items.reduce(
       (sum: number, item: { amount: number }) => sum + Number(item.amount),
       0
     );
-    const total = subtotal; // Tax can be added later
+
+    // Use provided subtotal or calculated one
+    const subtotal = itemsSum;
+    const discount = Number(data.discount) || 0;
+    const taxRate = Number(data.taxRate) || 0;
+
+    // Calculate tax and total
+    const tax = (Math.max(0, subtotal - discount) * taxRate) / 100;
+    const total = Math.max(0, subtotal - discount + tax);
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -64,7 +71,9 @@ export async function POST(req: NextRequest) {
         currency: currency || "USD",
         note: note || "",
         subtotal,
-        tax: 0,
+        discount,
+        taxRate,
+        tax,
         total,
         // Legacy
         customer: clientName,

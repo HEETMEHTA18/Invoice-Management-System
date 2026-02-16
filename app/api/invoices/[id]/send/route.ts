@@ -5,7 +5,7 @@ import nodemailer from "nodemailer";
 import { MailtrapTransport } from "mailtrap";
 
 // POST: Send invoice PDF to client email
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

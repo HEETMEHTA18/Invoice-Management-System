@@ -1,0 +1,13 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/app/utils/db";
+
+export async function GET() {
+    try {
+        const customers = await (prisma as any).customer.findMany({
+            orderBy: { name: 'asc' }
+        });
+        return NextResponse.json(customers);
+    } catch (error) {
+        return NextResponse.json({ error: "Failed to fetch customers" }, { status: 500 });
+    }
+}

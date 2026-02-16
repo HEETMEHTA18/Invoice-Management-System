@@ -1,8 +1,115 @@
+
+"use client";
+
+import { useEffect, useState } from "react";
+import { DashboardStats } from "./components/DashboardStats";
+import { RiskTable } from "./components/RiskTable";
+import { Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 export default function DashboardPage() {
+    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<any>(null);
+    const [error, setError] = useState("");
+
+    const fetchDashboardData = async () => {
+        try {
+            setLoading(true);
+            setError("");
+            const res = await fetch("/api/dashboard/stats");
+            if (!res.ok) throw new Error("Failed to fetch dashboard data");
+            const json = await res.json();
+            setData(json);
+        } catch (err) {
+            console.error(err);
+            setError("Failed to load dashboard data. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
     return (
-        <div className="rounded-lg border border-gray-200 bg-white h-full p-6">
-            <h1 className="text-2xl font-semibold text-gray-900">Welcome to the Dashboard</h1>
-            <p className="text-gray-500 mt-2">Manage your invoices and track your business.</p>
+        <div className="p-6 max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                        Overview of your business performance and risk analysis
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchDashboardData}
+                    disabled={loading}
+                    className="gap-2"
+                >
+                    {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    Refresh
+                </Button>
+            </div>
+
+            {error ? (
+                <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm mb-6">
+                    {error}
+                </div>
+            ) : loading && !data ? (
+                <div className="flex justify-center items-center py-20">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+            ) : (
+                <>
+                    {/* Key Performance Indicators */}
+                    <DashboardStats stats={data?.kpi} />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Risk Analysis Table (Main Content) */}
+                        <div className="lg:col-span-2">
+                            <RiskTable customers={data?.highRiskCustomers} />
+                        </div>
+
+                        {/* Recent Activity (Side Panel) */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wide">
+                                Recent Activity
+                            </h3>
+                            <div className="space-y-4">
+                                {data?.recentActivity?.length === 0 ? (
+                                    <p className="text-sm text-gray-500 italic">No recent activity.</p>
+                                ) : (
+                                    data?.recentActivity?.map((inv: any) => (
+                                        <div key={inv.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 rounded-lg px-2 -mx-2 transition-colors">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900">
+                                                    {inv.clientName || "Unknown Client"}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    #{inv.invoiceNumber} • {new Date(inv.date).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-gray-900">
+                                                    {inv.currency} {Number(inv.total || inv.amount || 0).toFixed(2)}
+                                                </p>
+                                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide
+                          ${inv.status === 'Paid' ? 'bg-green-100 text-green-700' :
+                                                        inv.status === 'Overdue' ? 'bg-red-100 text-red-700' :
+                                                            'bg-yellow-100 text-yellow-700'}`}>
+                                                    {inv.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

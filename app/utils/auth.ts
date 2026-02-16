@@ -8,7 +8,7 @@ import { MailtrapTransport } from "mailtrap"
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
-     Nodemailer({
+    Nodemailer({
       server: {},
       from: process.env.EMAIL_FROM,
       async sendVerificationRequest({ identifier: email, url, provider }) {
@@ -37,8 +37,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           `,
         })
 
-        if (result.rejected?.length) {
-          throw new Error(`Email delivery failed: ${result.rejected.join(", ")}`)
+        if ((result as any).rejected?.length) {
+          throw new Error(`Email delivery failed: ${(result as any).rejected.join(", ")}`)
         }
       },
     }),

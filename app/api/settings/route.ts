@@ -37,11 +37,19 @@ export async function POST(req: NextRequest) {
             update: {
                 ...(logo !== undefined && { logo }),
                 ...(signature !== undefined && { signature }),
+                ...(data.name !== undefined && { name: data.name }),
+                ...(data.email !== undefined && { email: data.email }),
+                ...(data.phone !== undefined && { phone: data.phone }),
+                ...(data.address !== undefined && { address: data.address }),
             },
             create: {
                 userId: session.user.id,
                 logo: logo || null,
                 signature: signature || null,
+                name: data.name || "",
+                email: data.email || "",
+                phone: data.phone || "",
+                address: data.address || "",
             },
         });
 

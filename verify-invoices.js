@@ -60,7 +60,29 @@ async function verify() {
         const bulk = await request('/api/invoices/bulk-import', 'POST', jsonData);
         console.log(`POST /api/invoices/bulk-import: ${bulk.status}`, JSON.stringify(bulk.body, null, 2));
     } catch (e) {
-        console.error("Bulk Import failed", e);
+        console.error("Bulk Import Invoices failed", e);
+    }
+
+    // 3. Bulk Import Customers
+    try {
+        const customerData = {
+            customers: [
+                {
+                    name: "Test Customer 1",
+                    group: "Sundry Debtors",
+                    opening_balance: 1000,
+                    address: ["123 Test St", "Test City"],
+                    state: "Gujarat",
+                    country: "India",
+                    gstin: "TESTGSTIN123",
+                    contact: { phone: "1234567890", email: "test@example.com" }
+                }
+            ]
+        };
+        const bulkCust = await request('/api/customers/bulk-import', 'POST', customerData);
+        console.log(`POST /api/customers/bulk-import: ${bulkCust.status}`, JSON.stringify(bulkCust.body, null, 2));
+    } catch (e) {
+        console.error("Bulk Import Customers failed", e);
     }
 }
 

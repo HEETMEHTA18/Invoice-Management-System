@@ -26,6 +26,7 @@ export default function InvoicePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const customerFileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -60,25 +61,27 @@ export default function InvoicePage() {
     }
   }
 
-  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>, type: 'invoice' | 'customer') {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const endpoint = type === 'customer' ? "/api/customers/bulk-import" : "/api/invoices/bulk-import";
 
     const reader = new FileReader();
     reader.onload = async (event) => {
       const content = event.target?.result as string;
       setLoading(true);
       try {
-        const res = await fetch("/api/invoices/bulk-import", {
+        const res = await fetch(endpoint, {
           method: "POST",
           body: content, // Send raw content (YAML/JSON)
         });
         const result = await res.json();
         if (res.ok) {
-          alert(`Import successful: ${result.createdCount} invoices created.`);
-          fetchInvoices();
+          alert(`Import successful: ${result.createdCount} records created.`);
+          if (type === 'invoice') fetchInvoices();
         } else {
-          alert(`Import failed: ${result.error}`);
+          alert(`Import failed: ${result.error || "Unknown error"}`);
         }
       } catch (err) {
         alert("Import failed. See console.");
@@ -86,6 +89,7 @@ export default function InvoicePage() {
       } finally {
         setLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
+        if (customerFileInputRef.current) customerFileInputRef.current.value = "";
       }
     };
     reader.readAsText(file);
@@ -106,16 +110,32 @@ export default function InvoicePage() {
               accept=".yml,.yaml,.json"
               className="hidden"
               ref={fileInputRef}
-              onChange={handleBulkImport}
+              onChange={(e) => handleBulkImport(e, 'invoice')}
             />
+            <input
+              type="file"
+              accept=".yml,.yaml,.json"
+              className="hidden"
+              ref={customerFileInputRef}
+              onChange={(e) => handleBulkImport(e, 'customer')}
+            />
+            <Button
+              variant="outline"
+              onClick={() => customerFileInputRef.current?.click()}
+              disabled={loading}
+              className="bg-white mr-2 text-[#596778]"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Import Customers
+            </Button>
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
               disabled={loading}
-              className="bg-white"
+              className="bg-white text-[#596778]"
             >
               <Upload className="w-4 h-4 mr-2" />
-              Bulk Import
+              Import Invoices
             </Button>
           </div>
         </div>
@@ -185,8 +205,8 @@ export default function InvoicePage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${inv.status === "Paid" ? "bg-green-100 text-green-800" :
-                            inv.status === "Pending" ? "bg-yellow-100 text-yellow-800" :
-                              "bg-gray-100 text-gray-800"
+                          inv.status === "Pending" ? "bg-yellow-100 text-yellow-800" :
+                            "bg-gray-100 text-gray-800"
                           }`}>
                           {inv.status}
                         </span>

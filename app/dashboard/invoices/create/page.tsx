@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
@@ -20,7 +20,14 @@ import {
   Sparkles,
   AlertCircle,
   MessageSquare,
+  ChevronDown,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -61,11 +68,49 @@ export default function CreateInvoicePage() {
   const [showRawText, setShowRawText] = useState(false);
   const tallyFileRef = useRef<HTMLInputElement>(null);
   const photoFileRef = useRef<HTMLInputElement>(null);
+  const dataFileInputRef = useRef<HTMLInputElement>(null);
+  const customerFileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>, type: 'invoice' | 'customer') {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const endpoint = type === 'customer' ? "/api/customers/bulk-import" : "/api/invoices/bulk-import";
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      setLoading(true);
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          body: content,
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert(`Import successful: ${result.createdCount} records created.`);
+          router.push("/dashboard/invoices"); // Redirect to list to see imported data
+        } else {
+          alert(`Import failed: ${result.error || "Unknown error"}`);
+        }
+      } catch (err) {
+        alert("Import failed. See console.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+        if (dataFileInputRef.current) dataFileInputRef.current.value = "";
+        if (customerFileInputRef.current) customerFileInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
+  }
 
   // Form state
-  const [senderName, setSenderName] = useState("SHIV hardware");
+
+  const [senderName, setSenderName] = useState("Shiv Hardware");
   const [senderEmail, setSenderEmail] = useState("shivhardware@gmail.com");
-  const [senderAddress, setSenderAddress] = useState("nadiad");
+  const [senderAddress, setSenderAddress] = useState("Shiv Hardware, Nadiad");
+
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientAddress, setClientAddress] = useState("");
@@ -73,12 +118,10 @@ export default function CreateInvoicePage() {
   const [date, setDate] = useState("");
   const [dueDate, setDueDate] = useState("");
 
-  useEffect(() => {
-    setInvoiceNumber(`INV-${Date.now().toString().slice(-6)}`);
-    setDate(new Date().toISOString().split("T")[0]);
-  }, []);
   const [currency, setCurrency] = useState("USD");
   const [note, setNote] = useState("");
+  const [taxRate, setTaxRate] = useState(0);
+  const [discount, setDiscount] = useState(0);
   const [items, setItems] = useState<InvoiceItem[]>([
     { description: "", quantity: 1, rate: 0, amount: 0 },
   ]);
@@ -92,9 +135,40 @@ export default function CreateInvoicePage() {
     AUD: "A$",
   };
 
+  const searchParams = useSearchParams();
+  const invoiceId = searchParams.get("invoiceId");
+  const isEditing = !!invoiceId;
+
+  const [customers, setCustomers] = useState<any[]>([]);
+
   useEffect(() => {
     fetchSettings();
+    fetchCustomers();
   }, []);
+
+  async function fetchCustomers() {
+    try {
+      const res = await fetch("/api/customers");
+      if (res.ok) {
+        const data = await res.json();
+        setCustomers(data);
+      }
+    } catch {
+      console.error("Failed to fetch customers");
+    }
+  }
+
+  function handleClientNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const name = e.target.value;
+    setClientName(name);
+
+    // Auto-fill if match found
+    const customer = customers.find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (customer) {
+      if (customer.email) setClientEmail(customer.email);
+      if (customer.address) setClientAddress(customer.address);
+    }
+  }
 
   async function fetchSettings() {
     try {
@@ -102,6 +176,12 @@ export default function CreateInvoicePage() {
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
+        // Pre-fill sender details if available, only if not editing
+        if (!isEditing) {
+          if (data.name) setSenderName(data.name);
+          if (data.email) setSenderEmail(data.email);
+          if (data.address) setSenderAddress(data.address);
+        }
       }
     } catch {
       // Settings not found, ignore
@@ -121,6 +201,8 @@ export default function CreateInvoicePage() {
     if (data.clientAddress) setClientAddress(data.clientAddress);
     if (data.currency) setCurrency(data.currency);
     if (data.note) setNote(data.note);
+    if (data.taxRate) setTaxRate(Number(data.taxRate));
+    if (data.discount) setDiscount(Number(data.discount));
     if (data.items && data.items.length > 0) {
       setItems(
         data.items.map((item: InvoiceItem) => ({
@@ -133,6 +215,52 @@ export default function CreateInvoicePage() {
     }
     if (data.rawText) {
       setOcrRawText(data.rawText);
+    }
+  }
+
+  useEffect(() => {
+    if (isEditing) {
+      fetchInvoiceDetails(invoiceId);
+    } else {
+      setInvoiceNumber(`INV-${Date.now().toString().slice(-6)}`);
+      setDate(new Date().toISOString().split("T")[0]);
+    }
+  }, [isEditing, invoiceId]);
+
+  async function fetchInvoiceDetails(id: string) {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/invoices/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Populate form
+        setInvoiceNumber(data.invoiceNumber);
+        setDate(data.date ? new Date(data.date).toISOString().split('T')[0] : "");
+        setDueDate(data.dueDate ? new Date(data.dueDate).toISOString().split('T')[0] : "");
+        setSenderName(data.senderName);
+        setSenderEmail(data.senderEmail);
+        setSenderAddress(data.senderAddress);
+        setClientName(data.clientName);
+        setClientEmail(data.clientEmail);
+        setClientAddress(data.clientAddress);
+        setCurrency(data.currency);
+        setNote(data.note);
+        if (data.items && data.items.length > 0) {
+          setItems(data.items.map((item: any) => ({
+            description: item.description,
+            quantity: Number(item.quantity),
+            rate: Number(item.rate),
+            amount: Number(item.amount)
+          })));
+        }
+        setCreatedInvoiceId(data.id);
+      } else {
+        setError("Failed to fetch invoice details");
+      }
+    } catch (err) {
+      setError("Error loading invoice");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -254,7 +382,8 @@ export default function CreateInvoicePage() {
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const total = subtotal;
+  const taxAmount = (Math.max(0, subtotal - discount) * taxRate) / 100;
+  const total = Math.max(0, subtotal - discount + taxAmount);
   const sym = currencySymbols[currency] || "$";
 
   function generatePDF(): jsPDF {
@@ -389,6 +518,22 @@ export default function CreateInvoicePage() {
     doc.setTextColor(45, 55, 72);
     doc.text(`${sym}${subtotal.toFixed(2)}`, pageWidth - 14, y, { align: "right" });
 
+    if (discount > 0) {
+      y += 8;
+      doc.setTextColor(113, 128, 150);
+      doc.text("Discount", totalsX - 5, y);
+      doc.setTextColor(220, 38, 38); // Red
+      doc.text(`-${sym}${discount.toFixed(2)}`, pageWidth - 14, y, { align: "right" });
+    }
+
+    if (taxRate > 0) {
+      y += 8;
+      doc.setTextColor(113, 128, 150);
+      doc.text(`Tax (${taxRate}%)`, totalsX - 5, y);
+      doc.setTextColor(45, 55, 72);
+      doc.text(`${sym}${taxAmount.toFixed(2)}`, pageWidth - 14, y, { align: "right" });
+    }
+
     y += 10;
     doc.setDrawColor(226, 232, 240);
     doc.line(totalsX - 10, y - 4, pageWidth - 14, y - 4);
@@ -458,8 +603,11 @@ export default function CreateInvoicePage() {
     setSuccess(false);
 
     try {
-      const res = await fetch("/api/invoices", {
-        method: "POST",
+      const url = isEditing ? `/api/invoices/${invoiceId}` : "/api/invoices";
+      const method = isEditing ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           senderName,
@@ -471,23 +619,29 @@ export default function CreateInvoicePage() {
           invoiceNumber,
           date,
           dueDate,
-          status: "Pending",
+          status: "Pending", // Or keep existing if editing
           currency,
           note,
           items,
+          discount,
+          taxRate,
+          tax: taxAmount,
+          subtotal,
+          total,
         }),
       });
 
       if (!res.ok) {
         const err = await res.json();
-        setError(err.error || "Failed to create invoice");
+        setError(err.error || `Failed to ${isEditing ? "update" : "create"} invoice`);
       } else {
         const invoice = await res.json();
         setCreatedInvoiceId(invoice.id);
         setSuccess(true);
+        if (isEditing) alert("Invoice updated successfully!");
       }
     } catch {
-      setError("Failed to create invoice");
+      setError(`Failed to ${isEditing ? "update" : "create"} invoice`);
     } finally {
       setLoading(false);
     }
@@ -566,68 +720,100 @@ export default function CreateInvoicePage() {
       />
 
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
-          <button
-            onClick={() => router.push("/dashboard/invoices")}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm font-medium">Back to Invoices</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handlePreview}
-              className="flex items-center gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Preview PDF
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleDownload}
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Download
-            </Button>
-            {success && createdInvoiceId && (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSendEmail}
-                  disabled={sendingEmail}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {sendingEmail ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  {sendingEmail ? "Sending..." : "Send Email"}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSendSMS}
-                  disabled={sendingSms}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {sendingSms ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <MessageSquare className="h-4 w-4" />
-                  )}
-                  {sendingSms ? "Sending..." : "Send SMS"}
-                </Button>
-              </>
-            )}
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+            {/* Left: Back & Title */}
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/dashboard/invoices")}
+                className="-ml-2 text-gray-500 hover:text-gray-900"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+              <div className="h-6 w-px bg-gray-200 hidden sm:block" />
+              <h1 className="text-lg font-semibold text-gray-900">
+                {isEditing ? "Edit Invoice" : "Create Invoice"}
+              </h1>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* Preview */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreview}
+                className="text-gray-600"
+                title="Preview PDF"
+              >
+                <Eye className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Preview</span>
+              </Button>
+
+              {/* Import Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 text-gray-600">
+                    <Upload className="h-4 w-4" />
+                    <span className="hidden sm:inline">Import</span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => customerFileInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import Customers
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => dataFileInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import Invoices
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Download */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                className="text-gray-600"
+                title="Download PDF"
+              >
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Download</span>
+              </Button>
+
+              {/* Send Actions (only if created) */}
+              {success && createdInvoiceId && (
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
+                  <Button
+                    size="sm"
+                    onClick={handleSendEmail}
+                    disabled={sendingEmail}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {sendingEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3 sm:mr-2" />}
+                    <span className="hidden sm:inline">Email</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSendSMS}
+                    disabled={sendingSms}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {sendingSms ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3 sm:mr-2" />}
+                    <span className="hidden sm:inline">SMS</span>
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -732,8 +918,7 @@ export default function CreateInvoicePage() {
                 type="button"
                 onClick={() => {
                   setImportMethod("tally");
-                  setShowImportModal(true);
-                  setImportError("");
+                  dataFileInputRef.current?.click();
                 }}
                 className={`group relative p-5 rounded-xl border-2 transition-all duration-200 text-left ${importMethod === "tally"
                   ? "border-emerald-500 bg-emerald-50 shadow-sm"
@@ -904,12 +1089,18 @@ export default function CreateInvoicePage() {
                     <label className="block text-xs text-gray-500 mb-1">Client Name</label>
                     <input
                       type="text"
+                      list="customer-list"
                       value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
+                      onChange={handleClientNameChange}
                       placeholder="Client name"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                       required
                     />
+                    <datalist id="customer-list">
+                      {Array.isArray(customers) && customers.map((c: any) => (
+                        <option key={c.id} value={c.name} />
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Client Email</label>
@@ -1072,6 +1263,46 @@ export default function CreateInvoicePage() {
                     {subtotal.toFixed(2)}
                   </span>
                 </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Discount</span>
+                  <div className="flex items-center w-24">
+                    <span className="text-gray-500 mr-1">-</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={discount}
+                      onChange={(e) => setDiscount(Number(e.target.value))}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-right text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Tax Rate (%)</span>
+                  <div className="flex items-center w-24">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(Number(e.target.value))}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-right text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                    <span className="text-gray-500 ml-1">%</span>
+                  </div>
+                </div>
+
+                {taxRate > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Tax Amount</span>
+                    <span className="font-medium text-gray-900">
+                      {sym}
+                      {taxAmount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="border-t border-gray-200 pt-3 flex items-center justify-between">
                   <span className="text-base font-bold text-gray-900">Total ({currency})</span>
                   <span className="text-lg font-bold text-gray-900">

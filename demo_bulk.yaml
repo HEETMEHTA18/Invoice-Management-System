@@ -1,0 +1,109 @@
+# TallyPrime Bulk Import YAML
+# Includes Customers + Hardware Items + Sales Transactions
+
+customers:
+  - name: "Raj Hardware Store"
+    group: "Sundry Debtors"
+    opening_balance: 0
+    state: "Gujarat"
+    country: "India"
+    gstin: "24AAACR1111A1Z1"
+    phone: "9876543210"
+
+  - name: "Shree Tools Mart"
+    group: "Sundry Debtors"
+    opening_balance: 5000
+    state: "Maharashtra"
+    country: "India"
+    gstin: "27BBBST2222B1Z2"
+    phone: "9123456789"
+
+  - name: "Metro Hardware"
+    group: "Sundry Debtors"
+    opening_balance: 0
+    state: "Rajasthan"
+    country: "India"
+    gstin: ""
+    phone: "9000000000"
+
+
+stock_items:
+  - name: "Hammer"
+    unit: "Nos"
+    rate: 250
+
+  - name: "Screwdriver Set"
+    unit: "Nos"
+    rate: 400
+
+  - name: "Drill Machine"
+    unit: "Nos"
+    rate: 2500
+
+  - name: "PVC Pipe 1 inch"
+    unit: "Nos"
+    rate: 120
+
+
+transactions:
+
+  - voucher_type: "Sales"
+    date: "1-Apr-2025"
+    invoice_no: "SAL-101"
+    party_ledger: "Raj Hardware Store"
+    sales_ledger: "Sales Account"
+    inventory:
+      - item_name: "Hammer"
+        quantity: 10
+        rate: 250
+        amount: 2500
+      - item_name: "Screwdriver Set"
+        quantity: 5
+        rate: 400
+        amount: 2000
+    ledger_allocations:
+      - ledger_name: "Output CGST"
+        amount: 225
+      - ledger_name: "Output SGST"
+        amount: 225
+    narration: "Sold tools to Raj Hardware Store"
+
+
+  - voucher_type: "Sales"
+    date: "2-Apr-2025"
+    invoice_no: "SAL-102"
+    party_ledger: "Shree Tools Mart"
+    sales_ledger: "Sales Account"
+    inventory:
+      - item_name: "Drill Machine"
+        quantity: 2
+        rate: 2500
+        amount: 5000
+      - item_name: "Hammer"
+        quantity: 4
+        rate: 250
+        amount: 1000
+    ledger_allocations:
+      - ledger_name: "Output CGST"
+        amount: 540
+      - ledger_name: "Output SGST"
+        amount: 540
+    narration: "Hardware items sold"
+
+
+  - voucher_type: "Sales"
+    date: "3-Apr-2025"
+    invoice_no: "SAL-103"
+    party_ledger: "Metro Hardware"
+    sales_ledger: "Sales Account"
+    inventory:
+      - item_name: "PVC Pipe 1 inch"
+        quantity: 30
+        rate: 120
+        amount: 3600
+    ledger_allocations:
+      - ledger_name: "Output CGST"
+        amount: 324
+      - ledger_name: "Output SGST"
+        amount: 324
+    narration: "PVC pipe sale"
