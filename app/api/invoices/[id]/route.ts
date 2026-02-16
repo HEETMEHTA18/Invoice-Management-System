@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/app/utils/db";
 
@@ -17,22 +18,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-// PATCH: Update an invoice
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+// PUT: Update an invoice (using PUT as it replaces the resource conceptually if we replace items)
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = await params;
     const data = await req.json();
     const { items, ...invoiceData } = data;
 
     // Update invoice and optionally replace items
-    const updateData: Record<string, unknown> = { ...invoiceData };
+    const updateData: Record<string, unknown> = {
+      ...invoiceData,
+      date: invoiceData.date ? new Date(invoiceData.date) : undefined,
+      dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
+    };
 
     if (items) {
+      // Transactional update would be better, but simple approach for now
       // Delete existing items and create new ones
       await prisma.invoiceItem.deleteMany({ where: { invoiceId: Number(id) } });
       updateData.items = {
         create: items.map(
-          (item: { description: string; quantity: number; rate: number; amount: number }) => ({
+          (item: { description: string; quantity: number | string; rate: number | string; amount: number | string }) => ({
             description: item.description,
             quantity: Number(item.quantity),
             rate: Number(item.rate),

@@ -1,0 +1,55 @@
+# TallyPrime Bulk Customer Import YAML
+# Creates Multiple Customer Ledgers
+
+customers:
+  - name: "Customer A"
+    group: "Sundry Debtors"
+    opening_balance: 0
+    address:
+      - "12 Market Road"
+      - "Ahmedabad"
+    state: "Gujarat"
+    country: "India"
+    gstin: "24ABCDE1234F1Z5"
+    contact:
+      phone: "9876543210"
+      email: "customerA@email.com"
+
+  - name: "Customer B"
+    group: "Sundry Debtors"
+    opening_balance: 5000
+    address:
+      - "45 MG Street"
+      - "Surat"
+    state: "Gujarat"
+    country: "India"
+    gstin: "24PQRSX5678L1Z2"
+    contact:
+      phone: "9123456780"
+      email: "customerB@email.com"
+
+  - name: "Customer C"
+    group: "Sundry Debtors"
+    opening_balance: 0
+    address:
+      - "78 Lake View"
+      - "Vadodara"
+    state: "Gujarat"
+    country: "India"
+    gstin: ""
+    contact:
+      phone: ""
+      email: ""
+
+  - name: "Customer D"
+    group: "Sundry Debtors"
+    opening_balance: 12000
+    address:
+      - "22 Business Park"
+      - "Rajkot"
+    state: "Gujarat"
+    country: "India"
+    gstin: "24LMNOP4321K1Z8"
+    contact:
+      phone: "9988776655"
+      email: "customerD@email.com"

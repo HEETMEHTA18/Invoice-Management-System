@@ -1,18 +1,23 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, Pencil, Download, Mail, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Download, Mail, Trash2, Upload, Eye } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type Invoice = {
   id: number;
-  customer: string;
-  amount: string;
+  customer: string; // Legacy
+  clientName: string; // New field
+  amount: string; // Legacy
+  total: string; // New field
   status: string;
   date: string;
+  invoiceNumber: string;
 };
 
 export default function InvoicePage() {
@@ -20,6 +25,8 @@ export default function InvoicePage() {
   const [form, setForm] = useState({ customer: "", amount: "", status: "Paid", date: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     fetchInvoices();
@@ -53,113 +60,160 @@ export default function InvoicePage() {
     }
   }
 
+  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      setLoading(true);
+      try {
+        const res = await fetch("/api/invoices/bulk-import", {
+          method: "POST",
+          body: content, // Send raw content (YAML/JSON)
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert(`Import successful: ${result.createdCount} invoices created.`);
+          fetchInvoices();
+        } else {
+          alert(`Import failed: ${result.error}`);
+        }
+      } catch (err) {
+        alert("Import failed. See console.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
+  }
+
   return (
-    <div className="flex justify-center items-start w-full">
-      <div className="w-full max-w-4xl mt-8">
-        <Card className="rounded-2xl border shadow p-0">
-          <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+    <div className="flex justify-center items-start w-full min-h-screen bg-[#FBFCFC] p-4">
+      <div className="w-full max-w-6xl mt-8">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-[#596778]">Invoices</h1>
+            <p className="text-[#8691A6]">Manage your invoices and payments</p>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="file"
+              accept=".yml,.yaml,.json"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleBulkImport}
+            />
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              className="bg-white"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Bulk Import
+            </Button>
+          </div>
+        </div>
+
+        <Card className="rounded-xl border shadow-sm bg-white overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between border-b pb-4 px-6 pt-6">
             <div>
-              <CardTitle className="text-2xl font-bold">Invoices</CardTitle>
-              <CardDescription>View and manage your invoices below.</CardDescription>
+              <CardTitle className="text-xl font-bold text-[#596778]">All Invoices</CardTitle>
             </div>
-            <CardAction>
-              <form className="flex gap-2 items-end" onSubmit={handleCreateInvoice}>
-                <div>
-                  <Label htmlFor="customer">Customer</Label>
-                  <Input
-                    id="customer"
-                    value={form.customer}
-                    onChange={e => setForm(f => ({ ...f, customer: e.target.value }))}
-                    placeholder="Customer name"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    value={form.amount}
-                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                    placeholder="Amount"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={form.date}
-                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <select
-                    id="status"
-                    className="border rounded-md px-2 py-2 h-9"
-                    value={form.status}
-                    onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                  >
-                    <option value="Paid">Paid</option>
-                    <option value="Pending">Pending</option>
-                  </select>
-                </div>
-                <Button type="submit" className="bg-black text-white hover:bg-gray-900 font-medium px-4 py-2 rounded-md" size="sm" disabled={loading}>
-                  {loading ? "Creating..." : "+ Create Invoice"}
+            {/* Quick Create Form - simplified or kept as is */}
+            <form className="flex gap-2 items-end" onSubmit={handleCreateInvoice}>
+              <div className="grid grid-cols-4 gap-2">
+                <Input
+                  value={form.customer}
+                  onChange={e => setForm(f => ({ ...f, customer: e.target.value }))}
+                  placeholder="Customer"
+                  required
+                  className="h-9"
+                />
+                <Input
+                  type="number"
+                  value={form.amount}
+                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                  placeholder="Amount"
+                  required
+                  className="h-9"
+                />
+                <Input
+                  type="date"
+                  value={form.date}
+                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                  required
+                  className="h-9"
+                />
+                <Button type="submit" className="bg-[#596778] hover:bg-[#4a5666] h-9" disabled={loading}>
+                  {loading ? "..." : "Add"}
                 </Button>
-              </form>
-            </CardAction>
+              </div>
+            </form>
           </CardHeader>
           <CardContent className="p-0">
-            {error && <div className="text-red-600 px-6 pt-4">{error}</div>}
+            {error && <div className="text-red-500 px-6 py-4 bg-red-50 border-b">{error}</div>}
             <div className="overflow-x-auto">
               <table className="min-w-full">
-                <thead>
-                  <tr className="text-gray-500 text-sm">
-                    <th className="px-6 py-4 text-left font-normal">Invoice ID</th>
-                    <th className="px-6 py-4 text-left font-normal">Customer</th>
-                    <th className="px-6 py-4 text-left font-normal">Amount</th>
-                    <th className="px-6 py-4 text-left font-normal">Status</th>
-                    <th className="px-6 py-4 text-left font-normal">Date</th>
-                    <th className="px-6 py-4 text-left font-normal">Actions</th>
+                <thead className="bg-[#F9FAFB] border-b">
+                  <tr className="text-gray-500 text-xs uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left font-medium">Invoice No</th>
+                    <th className="px-6 py-3 text-left font-medium">Customer</th>
+                    <th className="px-6 py-3 text-left font-medium">Date</th>
+                    <th className="px-6 py-3 text-right font-medium">Amount</th>
+                    <th className="px-6 py-3 text-left font-medium">Status</th>
+                    <th className="px-6 py-3 text-center font-medium">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[#EDEFF2]">
                   {invoices.map(inv => (
-                    <tr key={inv.id} className="bg-white hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 font-medium">#{inv.id}</td>
-                      <td className="px-6 py-4">{inv.customer}</td>
-                      <td className="px-6 py-4">${parseFloat(inv.amount).toFixed(2)}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-block px-3 py-1 text-xs rounded ${inv.status === "Paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>{inv.status}</span>
+                    <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-medium text-[#596778]">
+                        <Link href={`/invoice/${inv.id}`} className="hover:underline">
+                          {inv.invoiceNumber || `#${inv.id}`}
+                        </Link>
                       </td>
-                      <td className="px-6 py-4">{new Date(inv.date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{inv.clientName || inv.customer}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{new Date(inv.date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-[#596778] text-right">
+                        ${parseFloat(inv.total || inv.amount).toFixed(2)}
+                      </td>
                       <td className="px-6 py-4">
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${inv.status === "Paid" ? "bg-green-100 text-green-800" :
+                            inv.status === "Pending" ? "bg-yellow-100 text-yellow-800" :
+                              "bg-gray-100 text-gray-800"
+                          }`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="w-5 h-5" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="w-4 h-4 text-gray-400" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View</DropdownMenuItem>
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/invoice/${inv.id}`)}>
+                              <Eye className="w-4 h-4 mr-2" /> View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/invoice/${inv.id}?edit=true`)}>
                               <Pencil className="w-4 h-4 mr-2" /> Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Download className="w-4 h-4 mr-2" /> Download Invoice
+                            <DropdownMenuItem onClick={() => router.push(`/invoice/${inv.id}?download=true`)}>
+                              <Download className="w-4 h-4 mr-2" /> Download
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Mail className="w-4 h-4 mr-2" /> Reminder Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
-                              await fetch(`/api/invoices/${inv.id}`, { method: "DELETE" });
-                              fetchInvoices();
-                            }} className="text-red-600 focus:text-red-700">
+                            <DropdownMenuItem className="text-red-600 focus:text-red-700" onClick={async () => {
+                              if (confirm('Are you sure you want to delete this invoice?')) {
+                                await fetch(`/api/invoices/${inv.id}`, { method: "DELETE" });
+                                fetchInvoices();
+                              }
+                            }}>
                               <Trash2 className="w-4 h-4 mr-2" /> Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -169,7 +223,9 @@ export default function InvoicePage() {
                   ))}
                   {invoices.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="text-center text-gray-400 py-8">No invoices found.</td>
+                      <td colSpan={6} className="text-center text-gray-400 py-12">
+                        No invoices found. Create one or import bulk data.
+                      </td>
                     </tr>
                   )}
                 </tbody>
