@@ -1,6 +1,7 @@
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import NextAuth from "next-auth"
 import Nodemailer from "next-auth/providers/nodemailer"
+import Google from "next-auth/providers/google"
 import { prisma } from "./db"
 import nodemailer from "nodemailer"
 import { MailtrapTransport } from "mailtrap"
@@ -8,6 +9,17 @@ import { MailtrapTransport } from "mailtrap"
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: "openid email profile https://www.googleapis.com/auth/gmail.send",
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    }),
     Nodemailer({
       server: {},
       from: process.env.EMAIL_FROM,

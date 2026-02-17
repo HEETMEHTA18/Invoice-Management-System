@@ -2,7 +2,7 @@ import React from "react";
 import { InvoiceActions } from "./InvoiceActions";
 import { FileText } from "lucide-react";
 
-export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder, onDownload }: any) {
+export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder, onDownload, onRecordPayment }: any) {
   // Safe date helper
   const formatDate = (dateString: any) => {
     if (!dateString) return "—";
@@ -65,7 +65,7 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-medium text-gray-900">
-                  {inv.currency || "$"}{parseFloat(inv.total || inv.amount || "0").toFixed(2)}
+                  {inv.currency === "INR" ? "₹" : (inv.currency || "₹")}{parseFloat(inv.total || inv.amount || "0").toFixed(2)}
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
@@ -92,6 +92,7 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
                   onMarkPaid={() => onMarkPaid && onMarkPaid(inv)}
                   onReminder={() => onReminder && onReminder(inv)}
                   onDownload={() => onDownload && onDownload(inv)}
+                  onRecordPayment={() => onRecordPayment && onRecordPayment(inv)}
                 />
               </td>
             </tr>

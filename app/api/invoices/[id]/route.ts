@@ -26,11 +26,45 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { items, ...invoiceData } = data;
 
     // Update invoice and optionally replace items
-    const updateData: Record<string, unknown> = {
+    const updateData: any = {
       ...invoiceData,
+      template: invoiceData.template || undefined,
       date: invoiceData.date ? new Date(invoiceData.date) : undefined,
       dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : undefined,
     };
+
+    // Calculate tax breakdown matching the POST logic
+    if (updateData.subtotal !== undefined && updateData.taxRate !== undefined) {
+      const subtotal = Number(updateData.subtotal);
+      const discount = Number(updateData.discount) || 0;
+      const taxRate = Number(updateData.taxRate);
+      const gstType = updateData.gstType || "INTRA";
+
+      const taxableAmount = Math.max(0, subtotal - discount);
+      const totalTax = (taxableAmount * taxRate) / 100;
+
+      updateData.tax = totalTax;
+      if (gstType === "INTRA") {
+        updateData.cgst = totalTax / 2;
+        updateData.sgst = totalTax / 2;
+        updateData.igst = 0;
+      } else {
+        updateData.igst = totalTax;
+        updateData.cgst = 0;
+        updateData.sgst = 0;
+      }
+      updateData.total = taxableAmount + totalTax;
+      updateData.amount = updateData.total; // Legacy field
+
+      // Recalculate balance based on existing amountPaid
+      const existingInvoice = await prisma.invoice.findUnique({
+        where: { id: Number(id) },
+        select: { amountPaid: true }
+      });
+      const amountPaid = Number(existingInvoice?.amountPaid || 0);
+      updateData.amountPaid = amountPaid;
+      updateData.balance = Number(updateData.total) - amountPaid;
+    }
 
     if (items) {
       // Transactional update would be better, but simple approach for now
@@ -38,8 +72,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       await prisma.invoiceItem.deleteMany({ where: { invoiceId: Number(id) } });
       updateData.items = {
         create: items.map(
-          (item: { description: string; quantity: number | string; rate: number | string; amount: number | string }) => ({
+          (item: { description: string; hsnCode?: string; quantity: number | string; rate: number | string; amount: number | string }) => ({
             description: item.description,
+            hsnCode: item.hsnCode || null,
             quantity: Number(item.quantity),
             rate: Number(item.rate),
             amount: Number(item.amount),

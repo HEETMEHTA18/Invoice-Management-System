@@ -1,11 +1,20 @@
-
 "use client";
-
 import { useEffect, useState } from "react";
 import { DashboardStats } from "./components/DashboardStats";
 import { RiskTable } from "./components/RiskTable";
+import { AnalyticsCharts } from "./components/AnalyticsCharts";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const getCurrencySymbol = (currency: string) => {
+    const symbols: Record<string, string> = {
+        INR: "₹",
+        USD: "$",
+        EUR: "€",
+        GBP: "£",
+    };
+    return symbols[currency] || currency;
+};
 
 export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
@@ -66,6 +75,12 @@ export default function DashboardPage() {
                     {/* Key Performance Indicators */}
                     <DashboardStats stats={data?.kpi} />
 
+                    {/* Visual Analytics */}
+                    <AnalyticsCharts
+                        revenueData={data?.monthlyRevenue || []}
+                        statusData={data?.statusDistribution || []}
+                    />
+
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Risk Analysis Table (Main Content) */}
                         <div className="lg:col-span-2">
@@ -93,7 +108,7 @@ export default function DashboardPage() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm font-bold text-gray-900">
-                                                    {inv.currency} {Number(inv.total || inv.amount || 0).toFixed(2)}
+                                                    {getCurrencySymbol(inv.currency)} {Number(inv.total || inv.amount || 0).toFixed(2)}
                                                 </p>
                                                 <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide
                           ${inv.status === 'Paid' ? 'bg-green-100 text-green-700' :

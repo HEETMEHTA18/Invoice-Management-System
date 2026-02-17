@@ -1,10 +1,34 @@
 
-import { AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowRight, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function RiskTable({ customers }: { customers: any[] }) {
     const router = useRouter();
+    const [sendingId, setSendingId] = useState<number | null>(null);
+
+    const handleSendReminder = async (invoiceId: number) => {
+        try {
+            setSendingId(invoiceId);
+            const res = await fetch("/api/reminders/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ invoiceId }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert("Reminder sent successfully!");
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Failed to send reminder.");
+        } finally {
+            setSendingId(null);
+        }
+    };
 
     if (!customers || customers.length === 0) {
         return (
@@ -55,11 +79,27 @@ export function RiskTable({ customers }: { customers: any[] }) {
                                         {customer.count} Overdue
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-right">
+                                <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                                    {customer.lastInvoiceId && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                            onClick={() => handleSendReminder(customer.lastInvoiceId)}
+                                            disabled={sendingId === customer.lastInvoiceId}
+                                        >
+                                            {sendingId === customer.lastInvoiceId ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                                <Mail className="h-3 w-3 sm:mr-1.5" />
+                                            )}
+                                            <span className="hidden sm:inline">Remind</span>
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                        className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                         onClick={() => router.push(`/dashboard/invoices?search=${encodeURIComponent(customer.name)}`)}
                                     >
                                         View <ArrowRight className="ml-1 h-3 w-3" />

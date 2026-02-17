@@ -33,6 +33,7 @@ import autoTable from "jspdf-autotable";
 
 type InvoiceItem = {
   description: string;
+  hsnCode?: string;
   quantity: number;
   rate: number;
   amount: number;
@@ -118,12 +119,14 @@ export default function CreateInvoicePage() {
   const [date, setDate] = useState("");
   const [dueDate, setDueDate] = useState("");
 
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("INR");
   const [note, setNote] = useState("");
   const [taxRate, setTaxRate] = useState(0);
+  const [gstType, setGstType] = useState<"INTRA" | "INTER">("INTRA");
+  const [template, setTemplate] = useState("Standard");
   const [discount, setDiscount] = useState(0);
   const [items, setItems] = useState<InvoiceItem[]>([
-    { description: "", quantity: 1, rate: 0, amount: 0 },
+    { description: "", hsnCode: "", quantity: 1, rate: 0, amount: 0 },
   ]);
 
   const currencySymbols: Record<string, string> = {
@@ -140,11 +143,25 @@ export default function CreateInvoicePage() {
   const isEditing = !!invoiceId;
 
   const [customers, setCustomers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
     fetchSettings();
     fetchCustomers();
+    fetchProducts();
   }, []);
+
+  async function fetchProducts() {
+    try {
+      const res = await fetch("/api/products");
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data);
+      }
+    } catch {
+      console.error("Failed to fetch products");
+    }
+  }
 
   async function fetchCustomers() {
     try {
@@ -205,8 +222,9 @@ export default function CreateInvoicePage() {
     if (data.discount) setDiscount(Number(data.discount));
     if (data.items && data.items.length > 0) {
       setItems(
-        data.items.map((item: InvoiceItem) => ({
+        data.items.map((item: any) => ({
           description: item.description || "",
+          hsnCode: item.hsnCode || "",
           quantity: Number(item.quantity) || 1,
           rate: Number(item.rate) || 0,
           amount: Number(item.amount) || Number(item.quantity || 1) * Number(item.rate || 0),
@@ -248,11 +266,14 @@ export default function CreateInvoicePage() {
         if (data.items && data.items.length > 0) {
           setItems(data.items.map((item: any) => ({
             description: item.description,
+            hsnCode: item.hsnCode || "",
             quantity: Number(item.quantity),
             rate: Number(item.rate),
             amount: Number(item.amount)
           })));
         }
+        if (data.gstType) setGstType(data.gstType);
+        if (data.template) setTemplate(data.template);
         setCreatedInvoiceId(data.id);
       } else {
         setError("Failed to fetch invoice details");
@@ -359,6 +380,8 @@ export default function CreateInvoicePage() {
 
       if (field === "description") {
         item.description = value as string;
+      } else if (field === "hsnCode") {
+        item.hsnCode = value as string;
       } else if (field === "quantity") {
         item.quantity = Number(value) || 0;
         item.amount = item.quantity * item.rate;
@@ -373,7 +396,7 @@ export default function CreateInvoicePage() {
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { description: "", quantity: 1, rate: 0, amount: 0 }]);
+    setItems((prev) => [...prev, { description: "", hsnCode: "", quantity: 1, rate: 0, amount: 0 }]);
   }
 
   function removeItem(index: number) {
@@ -390,21 +413,53 @@ export default function CreateInvoicePage() {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Header background
-    doc.setFillColor(26, 26, 46);
-    doc.rect(0, 0, pageWidth, 50, "F");
+    // Template Colors & Styles
+    const styles = {
+      Standard: {
+        headerBg: [26, 26, 46],
+        headerText: [255, 255, 255],
+        accent: [26, 26, 46],
+        tableHead: [26, 26, 46],
+      },
+      Minimalist: {
+        headerBg: [255, 255, 255],
+        headerText: [31, 41, 55],
+        accent: [31, 41, 55],
+        tableHead: [31, 41, 55],
+      },
+      Professional: {
+        headerBg: [37, 99, 235],
+        headerText: [255, 255, 255],
+        accent: [37, 99, 235],
+        tableHead: [37, 99, 235],
+      },
+    }[template as "Standard" | "Minimalist" | "Professional"] || {
+      headerBg: [26, 26, 46],
+      headerText: [255, 255, 255],
+      accent: [26, 26, 46],
+      tableHead: [26, 26, 46],
+    };
+
+    // Header section
+    if (template !== "Minimalist") {
+      doc.setFillColor(styles.headerBg[0], styles.headerBg[1], styles.headerBg[2]);
+      doc.rect(0, 0, pageWidth, 50, "F");
+      doc.setTextColor(styles.headerText[0], styles.headerText[1], styles.headerText[2]);
+    } else {
+      doc.setTextColor(styles.headerText[0], styles.headerText[1], styles.headerText[2]);
+      doc.setDrawColor(229, 231, 235);
+      doc.line(14, 45, pageWidth - 14, 45);
+    }
 
     // Company logo
+    let logoY = 8;
     if (settings.logo) {
       try {
-        doc.addImage(settings.logo, "PNG", 14, 8, 35, 35);
-      } catch {
-        // Logo could not be added
-      }
+        doc.addImage(settings.logo, "PNG", 14, logoY, 35, 35);
+      } catch { /* Logo could not be added */ }
     }
 
     // Invoice title
-    doc.setTextColor(255, 255, 255);
     doc.setFontSize(28);
     doc.setFont("helvetica", "bold");
     doc.text("INVOICE", pageWidth - 14, 25, { align: "right" });
@@ -412,7 +467,7 @@ export default function CreateInvoicePage() {
     doc.setFont("helvetica", "normal");
     doc.text(invoiceNumber, pageWidth - 14, 35, { align: "right" });
 
-    // Reset text color
+    // Reset text color for body
     doc.setTextColor(45, 55, 72);
 
     // Sender & Client info
@@ -445,8 +500,14 @@ export default function CreateInvoicePage() {
     y += Math.max(senderAddrLines.length, clientAddrLines.length) * 5 + 10;
 
     // Invoice details bar
-    doc.setFillColor(247, 250, 252);
-    doc.roundedRect(14, y, pageWidth - 28, 22, 3, 3, "F");
+    if (template === "Minimalist") {
+      doc.setDrawColor(243, 244, 246);
+      doc.line(14, y, pageWidth - 14, y);
+      y += 5;
+    } else {
+      doc.setFillColor(247, 250, 252);
+      doc.roundedRect(14, y, pageWidth - 28, 22, 3, 3, "F");
+    }
 
     doc.setFontSize(8);
     doc.setTextColor(113, 128, 150);
@@ -464,11 +525,12 @@ export default function CreateInvoicePage() {
     doc.text("Pending", 170, y + 16);
     doc.setFont("helvetica", "normal");
 
-    y += 32;
+    y += (template === "Minimalist" ? 25 : 32);
 
     // Items table
     const tableData = items.map((item) => [
       item.description || "-",
+      item.hsnCode || "-",
       item.quantity.toString(),
       `${sym}${item.rate.toFixed(2)}`,
       `${sym}${item.amount.toFixed(2)}`,
@@ -476,11 +538,11 @@ export default function CreateInvoicePage() {
 
     autoTable(doc, {
       startY: y,
-      head: [["Description", "Qty", "Rate", "Amount"]],
+      head: [["Description", "HSN", "Qty", "Rate", "Amount"]],
       body: tableData,
-      theme: "plain",
+      theme: template === "Minimalist" ? "plain" : "striped",
       headStyles: {
-        fillColor: [26, 26, 46],
+        fillColor: styles.tableHead as [number, number, number],
         textColor: [255, 255, 255],
         fontSize: 10,
         fontStyle: "bold",
@@ -492,13 +554,14 @@ export default function CreateInvoicePage() {
         textColor: [45, 55, 72],
       },
       alternateRowStyles: {
-        fillColor: [247, 250, 252],
+        fillColor: template === "Minimalist" ? [255, 255, 255] : [247, 250, 252],
       },
       columnStyles: {
-        0: { cellWidth: 85 },
+        0: { cellWidth: 70 },
         1: { cellWidth: 25, halign: "center" },
-        2: { cellWidth: 35, halign: "right" },
-        3: { cellWidth: 35, halign: "right" },
+        2: { cellWidth: 20, halign: "center" },
+        3: { cellWidth: 32, halign: "right" },
+        4: { cellWidth: 32, halign: "right" },
       },
       margin: { left: 14, right: 14 },
     });
@@ -522,16 +585,30 @@ export default function CreateInvoicePage() {
       y += 8;
       doc.setTextColor(113, 128, 150);
       doc.text("Discount", totalsX - 5, y);
-      doc.setTextColor(220, 38, 38); // Red
+      doc.setTextColor(220, 38, 38);
       doc.text(`-${sym}${discount.toFixed(2)}`, pageWidth - 14, y, { align: "right" });
     }
 
     if (taxRate > 0) {
-      y += 8;
-      doc.setTextColor(113, 128, 150);
-      doc.text(`Tax (${taxRate}%)`, totalsX - 5, y);
-      doc.setTextColor(45, 55, 72);
-      doc.text(`${sym}${taxAmount.toFixed(2)}`, pageWidth - 14, y, { align: "right" });
+      if (gstType === "INTRA") {
+        y += 8;
+        doc.setTextColor(113, 128, 150);
+        doc.text(`CGST (${(taxRate / 2)}%)`, totalsX - 5, y);
+        doc.setTextColor(45, 55, 72);
+        doc.text(`${sym}${(taxAmount / 2).toFixed(2)}`, pageWidth - 14, y, { align: "right" });
+
+        y += 8;
+        doc.setTextColor(113, 128, 150);
+        doc.text(`SGST (${(taxRate / 2)}%)`, totalsX - 5, y);
+        doc.setTextColor(45, 55, 72);
+        doc.text(`${sym}${(taxAmount / 2).toFixed(2)}`, pageWidth - 14, y, { align: "right" });
+      } else {
+        y += 8;
+        doc.setTextColor(113, 128, 150);
+        doc.text(`IGST (${taxRate}%)`, totalsX - 5, y);
+        doc.setTextColor(45, 55, 72);
+        doc.text(`${sym}${taxAmount.toFixed(2)}`, pageWidth - 14, y, { align: "right" });
+      }
     }
 
     y += 10;
@@ -540,9 +617,11 @@ export default function CreateInvoicePage() {
 
     doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(26, 26, 46);
+    doc.setTextColor(styles.accent[0], styles.accent[1], styles.accent[2]);
     doc.text(`Total (${currency})`, totalsX - 5, y + 2);
     doc.text(`${sym}${total.toFixed(2)}`, pageWidth - 14, y + 2, { align: "right" });
+
+    // Note etc...
 
     // Note
     if (note) {
@@ -626,6 +705,8 @@ export default function CreateInvoicePage() {
           discount,
           taxRate,
           tax: taxAmount,
+          gstType,
+          template,
           subtotal,
           total,
         }),
@@ -1017,19 +1098,29 @@ export default function CreateInvoicePage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                    Currency
+                    GST Type
                   </label>
                   <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
+                    value={gstType}
+                    onChange={(e) => setGstType(e.target.value as "INTRA" | "INTER")}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
                   >
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="GBP">GBP (£)</option>
-                    <option value="INR">INR (₹)</option>
-                    <option value="CAD">CAD (C$)</option>
-                    <option value="AUD">AUD (A$)</option>
+                    <option value="INTRA">Intra-state (CGST + SGST)</option>
+                    <option value="INTER">Inter-state (IGST)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Invoice Template
+                  </label>
+                  <select
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white"
+                  >
+                    <option value="Standard">Standard (Modern)</option>
+                    <option value="Minimalist">Minimalist (Clean)</option>
+                    <option value="Professional">Professional (Corporate)</option>
                   </select>
                 </div>
               </div>
@@ -1166,7 +1257,8 @@ export default function CreateInvoicePage() {
 
             {/* Table Header */}
             <div className="hidden md:grid grid-cols-12 gap-3 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              <div className="col-span-5">Description</div>
+              <div className="col-span-4">Description</div>
+              <div className="col-span-1 text-center">HSN</div>
               <div className="col-span-2 text-center">Quantity</div>
               <div className="col-span-2 text-right">Rate</div>
               <div className="col-span-2 text-right">Amount</div>
@@ -1179,15 +1271,44 @@ export default function CreateInvoicePage() {
                 key={index}
                 className="grid grid-cols-1 md:grid-cols-12 gap-3 px-6 py-4 border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
               >
-                <div className="col-span-1 md:col-span-5">
+                <div className="col-span-1 md:col-span-4">
                   <label className="text-xs text-gray-500 md:hidden mb-1 block">Description</label>
-                  <textarea
+                  <input
+                    type="text"
+                    list={`product-list-${index}`}
                     value={item.description}
-                    onChange={(e) => updateItem(index, "description", e.target.value)}
-                    placeholder="Item name & description"
-                    rows={2}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    onChange={(e) => {
+                      const desc = e.target.value;
+                      updateItem(index, "description", desc);
+
+                      // Auto-fill from product master
+                      const product = products.find(p => p.name === desc);
+                      if (product) {
+                        updateItem(index, "rate", Number(product.basePrice));
+                        if (product.hsnCode) updateItem(index, "hsnCode", product.hsnCode);
+                        if (product.defaultTaxRate && taxRate === 0) setTaxRate(Number(product.defaultTaxRate));
+                      }
+                    }}
+                    placeholder="Search or enter item"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                     required
+                  />
+                  <datalist id={`product-list-${index}`}>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        ₹{Number(p.basePrice).toFixed(2)} {p.hsnCode ? `(HSN: ${p.hsnCode})` : ""}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
+                <div className="col-span-1 md:col-span-1">
+                  <label className="text-xs text-gray-500 md:hidden mb-1 block">HSN</label>
+                  <input
+                    type="text"
+                    value={item.hsnCode}
+                    onChange={(e) => updateItem(index, "hsnCode", e.target.value)}
+                    placeholder="HSN"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
                 <div className="col-span-1 md:col-span-2 flex items-start justify-center">
@@ -1294,13 +1415,34 @@ export default function CreateInvoicePage() {
                 </div>
 
                 {taxRate > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Tax Amount</span>
-                    <span className="font-medium text-gray-900">
-                      {sym}
-                      {taxAmount.toFixed(2)}
-                    </span>
-                  </div>
+                  <>
+                    {gstType === "INTRA" ? (
+                      <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">CGST ({(taxRate / 2).toFixed(1)}%)</span>
+                          <span className="font-medium text-gray-900">
+                            {sym}
+                            {(taxAmount / 2).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">SGST ({(taxRate / 2).toFixed(1)}%)</span>
+                          <span className="font-medium text-gray-900">
+                            {sym}
+                            {(taxAmount / 2).toFixed(2)}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">IGST ({taxRate}%)</span>
+                        <span className="font-medium text-gray-900">
+                          {sym}
+                          {taxAmount.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="border-t border-gray-200 pt-3 flex items-center justify-between">

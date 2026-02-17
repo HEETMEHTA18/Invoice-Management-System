@@ -103,17 +103,29 @@ model Invoice {
   discount        Decimal       @default(0) @db.Decimal(10,2) // [NEW]
   taxRate         Decimal       @default(0) @db.Decimal(5,2)  // [NEW]
   tax             Decimal       @default(0) @db.Decimal(10,2)
+  
+  // GST breakdown
+  gstType         String        @default("INTRA") // INTRA (CGST+SGST) or INTER (IGST)
+  cgst            Decimal       @default(0) @db.Decimal(10,2)
+  sgst            Decimal       @default(0) @db.Decimal(10,2)
+  igst            Decimal       @default(0) @db.Decimal(10,2)
+
   total           Decimal       @default(0) @db.Decimal(10,2)
+  amountPaid      Decimal       @default(0) @db.Decimal(10,2)
+  balance         Decimal       @default(0) @db.Decimal(10,2)
   // Note
   note            String        @default("")
   // Currency
-  currency        String        @default("USD")
+  currency        String        @default("INR")
+  // Template Selection
+  template        String        @default("Standard")
 
   // Legacy field kept for backwards compat
   customer        String        @default("")
   amount          Decimal       @default(0) @db.Decimal(10,2)
 
   items           InvoiceItem[]
+  payments        Payment[]
   
   // Relation to Customer model
   customerId      Int?
@@ -126,6 +138,7 @@ model Invoice {
 model InvoiceItem {
   id          Int     @id @default(autoincrement())
   description String
+  hsnCode     String?
   quantity    Int     @default(1)
   rate        Decimal @db.Decimal(10,2)
   amount      Decimal @db.Decimal(10,2)
@@ -162,4 +175,29 @@ model CompanySettings {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Product {
+  id             Int      @id @default(autoincrement())
+  name           String
+  description    String?
+  basePrice      Decimal  @db.Decimal(10, 2)
+  hsnCode        String?
+  defaultTaxRate Decimal  @default(0) @db.Decimal(5, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  invoiceId     Int
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount        Decimal  @db.Decimal(10, 2)
+  date          DateTime @default(now())
+  method        String   @default("Manual") // Manual, Bank, Cash, Card
+  transactionId String?
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 

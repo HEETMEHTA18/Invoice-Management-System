@@ -51,10 +51,24 @@ export async function POST(req: NextRequest) {
     const subtotal = itemsSum;
     const discount = Number(data.discount) || 0;
     const taxRate = Number(data.taxRate) || 0;
+    const gstType = data.gstType || "INTRA";
 
-    // Calculate tax and total
-    const tax = (Math.max(0, subtotal - discount) * taxRate) / 100;
-    const total = Math.max(0, subtotal - discount + tax);
+    // Calculate tax breakdown
+    let cgst = 0;
+    let sgst = 0;
+    let igst = 0;
+    const taxableAmount = Math.max(0, subtotal - discount);
+    const totalTax = (taxableAmount * taxRate) / 100;
+
+    if (gstType === "INTRA") {
+      cgst = totalTax / 2;
+      sgst = totalTax / 2;
+    } else {
+      igst = totalTax;
+    }
+
+    const total = taxableAmount + totalTax;
+    const template = data.template || "Standard";
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -68,20 +82,28 @@ export async function POST(req: NextRequest) {
         date: new Date(date),
         dueDate: dueDate ? new Date(dueDate) : null,
         status: status || "Pending",
-        currency: currency || "USD",
+        currency: currency || "INR",
+        template,
         note: note || "",
         subtotal,
         discount,
         taxRate,
-        tax,
+        tax: totalTax,
+        gstType,
+        cgst,
+        sgst,
+        igst,
         total,
+        amountPaid: 0,
+        balance: total,
         // Legacy
         customer: clientName,
         amount: total,
         items: {
           create: items.map(
-            (item: { description: string; quantity: number; rate: number; amount: number }) => ({
+            (item: { description: string; hsnCode?: string; quantity: number; rate: number; amount: number }) => ({
               description: item.description,
+              hsnCode: item.hsnCode || null,
               quantity: Number(item.quantity),
               rate: Number(item.rate),
               amount: Number(item.amount),

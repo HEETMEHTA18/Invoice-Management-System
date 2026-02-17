@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { InvoiceList } from "./InvoiceList";
+import { PaymentDialog } from "./PaymentDialog";
 import { generateInvoicePDF } from "@/app/utils/pdfGenerator";
 import { useRouter } from "next/navigation";
 import {
@@ -52,6 +53,8 @@ export default function InvoicesPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const customerFileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -194,6 +197,11 @@ export default function InvoicesPage() {
 
   function handleEdit(inv: Invoice) {
     router.push(`/dashboard/invoices/create?invoiceId=${inv.id}`);
+  }
+
+  function handleRecordPayment(inv: Invoice) {
+    setSelectedInvoiceForPayment(inv);
+    setIsPaymentDialogOpen(true);
   }
 
   return (
@@ -360,10 +368,18 @@ export default function InvoicesPage() {
               onMarkPaid={handleMarkPaid}
               onReminder={handleReminder}
               onDownload={handleDownload}
+              onRecordPayment={handleRecordPayment}
             />
           </div>
         )}
       </div>
+
+      <PaymentDialog
+        isOpen={isPaymentDialogOpen}
+        onClose={() => setIsPaymentDialogOpen(false)}
+        invoice={selectedInvoiceForPayment}
+        onSuccess={fetchInvoices}
+      />
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Download, Mail, Trash2, CheckCircle2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Download, Mail, Trash2, CheckCircle2, Banknote } from "lucide-react";
 import React from "react";
 
-export function InvoiceActions({ invoice, onEdit, onDelete, onMarkPaid, onReminder, onDownload }: any) {
+export function InvoiceActions({ invoice, onEdit, onDelete, onMarkPaid, onReminder, onDownload, onRecordPayment }: any) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -29,9 +29,14 @@ export function InvoiceActions({ invoice, onEdit, onDelete, onMarkPaid, onRemind
           <Trash2 className="w-4 h-4 mr-2" /> Delete Invoice
         </DropdownMenuItem>
         {invoice.status !== "Paid" && (
-          <DropdownMenuItem onClick={onMarkPaid}>
-            <CheckCircle2 className="w-4 h-4 mr-2" /> Mark as Paid
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem onClick={onMarkPaid}>
+              <CheckCircle2 className="w-4 h-4 mr-2" /> Mark as Paid
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onRecordPayment}>
+              <Banknote className="w-4 h-4 mr-2" /> Record Payment
+            </DropdownMenuItem>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

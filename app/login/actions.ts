@@ -34,3 +34,15 @@ export async function handleEmailSignIn(formData: FormData) {
 
   redirect("/verify")
 }
+
+export async function handleGoogleSignIn() {
+  try {
+    await signIn("google", { redirectTo: "/dashboard" })
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error
+    }
+    console.error("Google sign in error:", error)
+    redirect("/login?error=signin_failed")
+  }
+}
