@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/utils/db";
 import * as yaml from "js-yaml";
+import { XMLParser } from "fast-xml-parser";
 
 import { auth } from "@/app/utils/auth";
 
@@ -14,27 +15,136 @@ export async function POST(req: Request) {
         }) : null;
 
         const text = await req.text();
-        let data;
+        console.log("[BulkImport] Received text length:", text.length);
+        console.log("[BulkImport] First 100 characters:", text.substring(0, 100).replace(/\n/g, "\\n"));
 
-        // Try parsing as JSON first, then YAML
-        try {
-            data = JSON.parse(text);
-        } catch {
+        let data: any = null;
+        let isTallyXml = false;
+
+        // Try parsing as XML (Tally format)
+        if (text.trim().startsWith("<")) {
+            console.log("[BulkImport] Potential XML detected.");
             try {
-                data = yaml.load(text);
+                const parser = new XMLParser({
+                    ignoreAttributes: false,
+                    attributeNamePrefix: "@_",
+                    textNodeName: "#text"
+                });
+                const xmlObj = parser.parse(text);
+
+                // Recursive function to find all VOUCHER objects
+                const findVouchers = (obj: any): any[] => {
+                    let results: any[] = [];
+                    if (!obj || typeof obj !== "object") return results;
+
+                    if (obj.VOUCHER) {
+                        const vData = Array.isArray(obj.VOUCHER) ? obj.VOUCHER : [obj.VOUCHER];
+                        results.push(...vData);
+                    }
+
+                    for (const key in obj) {
+                        if (key !== "VOUCHER") {
+                            results.push(...findVouchers(obj[key]));
+                        }
+                    }
+                    return results;
+                };
+
+                const vouchers = findVouchers(xmlObj);
+                console.log(`[BulkImport] Found ${vouchers.length} potential vouchers in XML.`);
+
+                if (vouchers.length > 0) {
+                    isTallyXml = true;
+                    data = {
+                        transactions: vouchers.map((v: any) => {
+                            // Map Tally XML fields to a common format
+                            const partyLedger = v.PARTYLEDGERNAME || v["PARTYLEDGERNAME.#text"] || "Unknown Client";
+                            const invoiceNo = v.VOUCHERNUMBER || v.REFERENCE || v["VOUCHERNUMBER.#text"];
+                            const date = v.DATE || v["DATE.#text"];
+                            const narration = v.NARRATION || v["NARRATION.#text"];
+
+                            const inventoryEntriesList = v["ALLINVENTORYENTRIES.LIST"] || [];
+                            const inventoryEntries = Array.isArray(inventoryEntriesList) ? inventoryEntriesList : [inventoryEntriesList];
+
+                            const inventory = inventoryEntries.map((i: any) => ({
+                                item_name: i.STOCKITEMNAME || i["STOCKITEMNAME.#text"] || "Item",
+                                quantity: String(i.BILLEDQTY || i["BILLEDQTY.#text"] || "1").split(" ")[0],
+                                rate: parseFloat(String(i.RATE || i["RATE.#text"] || "0").split("/")[0]) || 0,
+                                amount: Math.abs(parseFloat(String(i.AMOUNT || i["AMOUNT.#text"] || "0"))) || 0
+                            }));
+
+                            const ledgerEntriesList = v["ALLLEDGERENTRIES.LIST"] || [];
+                            const ledgerEntries = Array.isArray(ledgerEntriesList) ? ledgerEntriesList : [ledgerEntriesList];
+
+                            const ledgers = ledgerEntries.map((l: any) => ({
+                                ledger_name: l.LEDGERNAME || l["LEDGERNAME.#text"] || "Ledger",
+                                amount: Math.abs(parseFloat(String(l.AMOUNT || l["AMOUNT.#text"] || "0"))) || 0
+                            }));
+
+                            return {
+                                voucher_type: v["@_VCHTYPE"] || v.VOUCHERTYPENAME || "Sales",
+                                invoice_no: invoiceNo,
+                                date: date,
+                                party_ledger: partyLedger,
+                                inventory,
+                                ledger_allocations: ledgers,
+                                narration: narration
+                            };
+                        })
+                    };
+                } else {
+                    console.log("[BulkImport] No vouchers found in XML after recursive search.");
+                }
             } catch (e) {
-                return NextResponse.json({ error: "Invalid format. Upload JSON or YAML." }, { status: 400 });
+                console.warn("[BulkImport] XML parsing failed:", e);
             }
         }
 
-        if (!data || !data.transactions || !Array.isArray(data.transactions)) {
-            return NextResponse.json({ error: "Invalid data structure. Expected 'transactions' array." }, { status: 400 });
+        if (!isTallyXml) {
+            console.log("[BulkImport] Not Tally XML, trying JSON/YAML.");
+            // Try parsing as JSON first, then YAML
+            try {
+                data = JSON.parse(text);
+                console.log("[BulkImport] Parsed as JSON.");
+            } catch {
+                try {
+                    data = yaml.load(text);
+                    console.log("[BulkImport] Parsed as YAML.");
+                } catch (e: any) {
+                    console.error("[BulkImport] All parsing failed:", e?.message);
+                    return NextResponse.json({ error: "Invalid format. Upload JSON, YAML, or Tally XML." }, { status: 400 });
+                }
+            }
+        }
+
+        // --- Robust Array Detection ---
+        let transactions = null;
+        if (Array.isArray(data)) {
+            transactions = data;
+            console.log("[BulkImport] Data is directly an array.");
+        } else if (data && typeof data === 'object') {
+            transactions = data.transactions || data.invoices || data.vouchers || data.data;
+            if (!transactions) {
+                // If no direct key, check if any property is an array
+                for (const key in data) {
+                    if (Array.isArray(data[key])) {
+                        transactions = data[key];
+                        console.log(`[BulkImport] Found array in key '${key}'`);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!transactions || !Array.isArray(transactions)) {
+            console.error("[BulkImport] Could not find a transactions array in the data.");
+            return NextResponse.json({ error: "Invalid data structure. Could not find a list of transactions." }, { status: 400 });
         }
 
         const createdInvoices = [];
         const errors = [];
 
-        for (const txn of data.transactions) {
+        for (const txn of transactions) {
             try {
                 // Only process Sales vouchers for now
                 if (txn.voucher_type !== "Sales") continue;
@@ -43,11 +153,19 @@ export async function POST(req: Request) {
                 // Assuming date format is "1-Apr-2025" or ISO
                 let date = new Date();
                 if (txn.date) {
-                    // Simple check for "1-Apr-2025" format
-                    if (txn.date.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}$/)) {
+                    if (typeof txn.date === 'string' && txn.date.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}$/)) {
                         date = new Date(txn.date);
                     } else {
                         date = new Date(txn.date);
+                    }
+                }
+
+                let dueDate = null;
+                if (txn.due_date) {
+                    if (typeof txn.due_date === 'string' && txn.due_date.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}$/)) {
+                        dueDate = new Date(txn.due_date);
+                    } else {
+                        dueDate = new Date(txn.due_date);
                     }
                 }
 
@@ -86,8 +204,10 @@ export async function POST(req: Request) {
                     if (customer) customerId = customer.id;
                 }
 
+                const clientName = txn.party_ledger || txn.customer?.name || txn.clientName || "Unknown Client";
+                const invoiceNumber = txn.invoice_no || txn.invoiceNumber || txn.id || `INV-${Date.now()}`;
+
                 // Check for duplicate invoice number
-                const invoiceNumber = txn.invoice_no;
                 if (invoiceNumber) {
                     const existingInvoice = await prisma.invoice.findFirst({
                         where: { invoiceNumber: invoiceNumber }
@@ -100,19 +220,20 @@ export async function POST(req: Request) {
 
                 const invoice = await prisma.invoice.create({
                     data: {
-                        invoiceNumber: txn.invoice_no || `INV-${Date.now()}`,
+                        invoiceNumber: invoiceNumber,
                         senderName: settings?.name || "Shiv Hardware",
                         senderEmail: settings?.email || "shivhardware@gmail.com",
                         senderAddress: settings?.address || "Shiv Hardware, Nadiad",
-                        clientName: txn.party_ledger || "Unknown Client",
+                        clientName: clientName,
                         date: date,
+                        dueDate: dueDate,
                         status: "Pending", // Default status
                         subtotal: subtotal,
                         tax: tax,
                         total: total,
                         note: txn.narration || "",
                         // Use legacy fields for compatibility if needed, or map properly
-                        customer: txn.party_ledger || "Unknown Client",
+                        customer: clientName,
                         amount: total,
                         customerId: customerId,
                         items: {

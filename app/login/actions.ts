@@ -36,13 +36,15 @@ export async function handleEmailSignIn(formData: FormData) {
 }
 
 export async function handleGoogleSignIn() {
+  console.log("[LoginAction] Initiating Google Sign-In...");
   try {
     await signIn("google", { redirectTo: "/dashboard" })
   } catch (error) {
     if (isRedirectError(error)) {
+      console.log("[LoginAction] Redirecting to Google...");
       throw error
     }
-    console.error("Google sign in error:", error)
+    console.error("[LoginAction] Google sign in error:", error)
     redirect("/login?error=signin_failed")
   }
 }

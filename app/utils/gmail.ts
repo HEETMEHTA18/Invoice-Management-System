@@ -11,6 +11,22 @@ export async function getGmailClient(userId: string) {
     });
 
     if (!account || !account.access_token) {
+        // Fallback to .env tokens if database tokens are missing
+        const fallbackAccessToken = process.env.GOOGLE_ACCESS_TOKEN;
+        const fallbackRefreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+        if (fallbackAccessToken) {
+            const auth = new google.auth.OAuth2(
+                process.env.GOOGLE_CLIENT_ID,
+                process.env.GOOGLE_CLIENT_SECRET
+            );
+            auth.setCredentials({
+                access_token: fallbackAccessToken,
+                refresh_token: fallbackRefreshToken,
+            });
+            return google.gmail({ version: "v1", auth });
+        }
+
         throw new Error("Google account not linked or access token missing");
     }
 
@@ -65,24 +81,56 @@ export async function sendInvoiceReminder({
     to,
     subject,
     body,
+    attachment,
+    attachmentName = "invoice.pdf",
 }: {
     userId: string;
     to: string;
     subject: string;
     body: string;
+    attachment?: Uint8Array;
+    attachmentName?: string;
 }) {
     const gmail = await getGmailClient(userId);
 
     const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString("base64")}?=`;
-    const messageParts = [
-        `To: ${to}`,
-        "Content-Type: text/html; charset=utf-8",
-        "MIME-Version: 1.0",
-        `Subject: ${utf8Subject}`,
-        "",
-        body,
-    ];
-    const message = messageParts.join("\n");
+
+    let message = "";
+
+    if (attachment) {
+        const boundary = "__boundary__";
+        const messageParts = [
+            `To: ${to}`,
+            `Subject: ${utf8Subject}`,
+            "MIME-Version: 1.0",
+            `Content-Type: multipart/mixed; boundary="${boundary}"`,
+            "",
+            `--${boundary}`,
+            "Content-Type: text/html; charset=utf-8",
+            "MIME-Version: 1.0",
+            "",
+            body,
+            "",
+            `--${boundary}`,
+            `Content-Type: application/pdf; name="${attachmentName}"`,
+            "Content-Transfer-Encoding: base64",
+            `Content-Disposition: attachment; filename="${attachmentName}"`,
+            "",
+            Buffer.from(attachment).toString("base64"),
+            `--${boundary}--`,
+        ];
+        message = messageParts.join("\r\n");
+    } else {
+        const messageParts = [
+            `To: ${to}`,
+            "Content-Type: text/html; charset=utf-8",
+            "MIME-Version: 1.0",
+            `Subject: ${utf8Subject}`,
+            "",
+            body,
+        ];
+        message = messageParts.join("\n");
+    }
 
     const encodedMessage = Buffer.from(message)
         .toString("base64")
@@ -90,10 +138,17 @@ export async function sendInvoiceReminder({
         .replace(/\//g, "_")
         .replace(/=+$/, "");
 
-    await gmail.users.messages.send({
-        userId: "me",
-        requestBody: {
-            raw: encodedMessage,
-        },
-    });
+    try {
+        await gmail.users.messages.send({
+            userId: "me",
+            requestBody: {
+                raw: encodedMessage,
+            },
+        });
+    } catch (error: any) {
+        if (error.code === 401 || error.message.includes("unauthorized_client")) {
+            throw new Error("Google access expired or credentials changed. Please log out and sign in again with Google.");
+        }
+        throw error;
+    }
 }

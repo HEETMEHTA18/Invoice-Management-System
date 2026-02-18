@@ -34,6 +34,9 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
               Total
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Balance
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Status
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -65,17 +68,29 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-medium text-gray-900">
-                  {inv.currency === "INR" ? "₹" : (inv.currency || "₹")}{parseFloat(inv.total || inv.amount || "0").toFixed(2)}
+                  {inv.currency === "INR" ? "₹" : (inv.currency || "₹")}{parseFloat(inv.total || inv.amount || "0").toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <div className="text-sm font-medium text-gray-900">
+                  {inv.currency === "INR" ? "₹" : (inv.currency || "₹")}{parseFloat(inv.balance?.toString() || inv.total || "0").toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+                {parseFloat(inv.amountPaid?.toString() || "0") > 0 && (
+                  <div className="text-xs text-green-600">Paid: {inv.currency === "INR" ? "₹" : inv.currency}{parseFloat(inv.amountPaid.toString()).toLocaleString()}</div>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${inv.status === "Paid"
                     ? "bg-green-100 text-green-800"
-                    : "bg-yellow-100 text-yellow-800"
+                    : inv.status === "Pending" && inv.dueDate && new Date(inv.dueDate) < new Date()
+                      ? "bg-red-100 text-red-800"
+                      : "bg-yellow-100 text-yellow-800"
                     }`}
                 >
-                  {inv.status || "Pending"}
+                  {inv.status === "Pending" && inv.dueDate && new Date(inv.dueDate) < new Date()
+                    ? "Overdue"
+                    : inv.status || "Pending"}
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

@@ -56,6 +56,7 @@ export default function InvoicesPage() {
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const tallyFileInputRef = useRef<HTMLInputElement>(null);
   const customerFileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -113,12 +114,50 @@ export default function InvoicesPage() {
     reader.readAsText(file);
   }
 
+  async function handleTallyImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/invoices/bulk-import", {
+          method: "POST",
+          body: content,
+        });
+        const result = await res.json();
+        if (res.ok) {
+          alert(`Tally import successful: ${result.createdCount} invoices created.`);
+          fetchInvoices();
+        } else {
+          alert(`Tally import failed: ${result.error || "Unknown error"}`);
+        }
+      } catch (err) {
+        alert("Tally import failed. See console.");
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+        if (tallyFileInputRef.current) tallyFileInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
+  }
+
   // Filter & search
   useEffect(() => {
     let result = invoices;
+    const now = new Date();
 
     if (statusFilter !== "all") {
-      result = result.filter((inv) => inv.status === statusFilter);
+      if (statusFilter === "Overdue") {
+        result = result.filter((inv) =>
+          inv.status === "Pending" && inv.dueDate && new Date(inv.dueDate) < now
+        );
+      } else {
+        result = result.filter((inv) => inv.status === statusFilter);
+      }
     }
 
     if (search.trim()) {
@@ -135,9 +174,13 @@ export default function InvoicesPage() {
   }, [search, statusFilter, invoices]);
 
   // Stats
+  const now = new Date();
   const totalRevenue = invoices.reduce((s, inv) => s + parseFloat(inv.total || inv.amount || "0"), 0);
   const paidCount = invoices.filter((inv) => inv.status === "Paid").length;
   const pendingCount = invoices.filter((inv) => inv.status === "Pending").length;
+  const overdueCount = invoices.filter((inv) =>
+    inv.status === "Pending" && inv.dueDate && new Date(inv.dueDate) < now
+  ).length;
 
   async function handleDelete(inv: Invoice) {
     if (!confirm(`Delete invoice ${inv.invoiceNumber || `#${inv.id}`}?`)) return;
@@ -227,11 +270,26 @@ export default function InvoicesPage() {
           />
           <input
             type="file"
+            accept=".xml,.yml,.yaml"
+            className="hidden"
+            ref={tallyFileInputRef}
+            onChange={handleTallyImport}
+          />
+          <input
+            type="file"
             accept=".yml,.yaml,.json"
             className="hidden"
             ref={customerFileInputRef}
             onChange={(e) => handleBulkImport(e, 'customer')}
           />
+          <Button
+            onClick={() => tallyFileInputRef.current?.click()}
+            className="bg-white border border-gray-200 text-purple-600 hover:bg-purple-50 font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm"
+            disabled={isLoading}
+          >
+            <FileText className="h-4 w-4" />
+            Import from Tally
+          </Button>
           <Button
             onClick={() => customerFileInputRef.current?.click()}
             className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm"
@@ -274,11 +332,11 @@ export default function InvoicesPage() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Paid / Pending</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Paid / Overdue</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
                 <span className="text-green-600">{paidCount}</span>
                 <span className="text-gray-400 mx-1">/</span>
-                <span className="text-yellow-600">{pendingCount}</span>
+                <span className="text-red-600">{overdueCount}</span>
               </p>
             </div>
             <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
@@ -317,7 +375,7 @@ export default function InvoicesPage() {
           </div>
           {/* Status filter */}
           <div className="flex items-center gap-2">
-            {["all", "Pending", "Paid"].map((status) => (
+            {["all", "Pending", "Paid", "Overdue"].map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}

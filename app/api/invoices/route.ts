@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
         },
       },
       include: { items: true },
-    });
+    } as any);
 
     return NextResponse.json(invoice, { status: 201 });
   } catch (error) {
