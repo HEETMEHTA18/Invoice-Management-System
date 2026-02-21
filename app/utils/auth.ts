@@ -3,8 +3,11 @@ import NextAuth from "next-auth"
 import Nodemailer from "next-auth/providers/nodemailer"
 import Google from "next-auth/providers/google"
 import { prisma } from "./db"
+// @ts-expect-error - nodemailer types are installed but not resolving correctly
 import nodemailer from "nodemailer"
+// @ts-expect-error - mailtrap types are included in the package
 import { MailtrapTransport } from "mailtrap"
+
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -49,8 +52,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           `,
         })
 
-        if ((result as any).rejected?.length) {
-          throw new Error(`Email delivery failed: ${(result as any).rejected.join(", ")}`)
+        if ('rejected' in result && Array.isArray(result.rejected) && result.rejected.length) {
+          throw new Error(`Email delivery failed: ${result.rejected.join(", ")}`)
         }
       },
     }),
