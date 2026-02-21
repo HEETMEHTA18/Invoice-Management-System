@@ -10,6 +10,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -92,6 +94,7 @@ model Invoice {
   // Client info
   clientName    String    @default("")
   clientEmail   String    @default("")
+  clientPhone   String    @default("")
   clientAddress String    @default("")
   // Invoice details
   invoiceNumber String    @default("")
@@ -119,6 +122,12 @@ model Invoice {
   currency   String  @default("INR")
   // Template Selection
   template   String  @default("Standard")
+  ownerUserId String?
+  autoReminderEnabled    Boolean @default(false)
+  reminderOffsets        Int[]   @default([])
+  overdueReminderEnabled Boolean @default(false)
+  overdueReminderEveryDays Int   @default(3)
+  reminderChannel String @default("EMAIL")
 
   // Legacy field kept for backwards compat
   customer String  @default("")
@@ -126,6 +135,7 @@ model Invoice {
 
   items    InvoiceItem[]
   payments Payment[]
+  reminderLogs InvoiceReminderLog[]
 
   // Relation to Customer model
   customerId  Int?
@@ -133,6 +143,14 @@ model Invoice {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([status])
+  @@index([status, dueDate])
+  @@index([status, date])
+  @@index([clientEmail, clientName])
+  @@index([autoReminderEnabled, dueDate, status])
+  @@index([ownerUserId])
 }
 
 model InvoiceItem {
@@ -198,4 +216,21 @@ model Payment {
   note          String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([invoiceId])
+}
+
+model InvoiceReminderLog {
+  id           Int      @id @default(autoincrement())
+  invoiceId    Int
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  reminderKey  String
+  reminderType String
+  targetDate   DateTime
+  sentAt       DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@unique([invoiceId, reminderKey])
+  @@index([targetDate])
+  @@index([sentAt])
 }

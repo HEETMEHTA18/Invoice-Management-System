@@ -6,6 +6,8 @@ import { AnalyticsCharts } from "./components/AnalyticsCharts";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+type RevenueRange = "day" | "week" | "month";
+
 interface DashboardData {
     kpi: {
         totalRevenue: number;
@@ -39,21 +41,24 @@ interface DashboardData {
         name: string;
         value: number;
     }>;
+    revenueRange?: RevenueRange;
 }
 
 export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<DashboardData | null>(null);
     const [error, setError] = useState("");
+    const [revenueRange, setRevenueRange] = useState<RevenueRange>("month");
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (range: RevenueRange = revenueRange) => {
         try {
             setLoading(true);
             setError("");
-            const res = await fetch("/api/dashboard/stats");
+            const res = await fetch(`/api/dashboard/stats?revenueRange=${range}`);
             if (!res.ok) throw new Error("Failed to fetch dashboard data");
             const json = await res.json();
             setData(json);
+            setRevenueRange((json.revenueRange as RevenueRange) || range);
         } catch (err) {
             console.error(err);
             setError("Failed to load dashboard data. Please try again.");
@@ -62,8 +67,15 @@ export default function DashboardPage() {
         }
     };
 
+    const handleRevenueRangeChange = (range: RevenueRange) => {
+        if (range === revenueRange) return;
+        setRevenueRange(range);
+        fetchDashboardData(range);
+    };
+
     useEffect(() => {
-        fetchDashboardData();
+        fetchDashboardData("month");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
@@ -78,7 +90,7 @@ export default function DashboardPage() {
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={fetchDashboardData}
+                    onClick={() => fetchDashboardData(revenueRange)}
                     disabled={loading}
                     className="gap-2"
                 >
@@ -104,6 +116,9 @@ export default function DashboardPage() {
                     <AnalyticsCharts
                         revenueData={data?.monthlyRevenue || []}
                         statusData={data?.statusDistribution || []}
+                        revenueRange={revenueRange}
+                        onRevenueRangeChange={handleRevenueRangeChange}
+                        isRevenueLoading={loading}
                     />
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
