@@ -1,0 +1,16 @@
+name: Daily Invoice Reminders
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # Run at 4:00 AM UTC (9:30 AM IST) daily
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Reminders
+        run: |
+          curl -X POST "${{ secrets.SITE_URL }}/api/reminders/auto" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "Content-Type: application/json"

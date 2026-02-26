@@ -4,11 +4,20 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function RiskTable({ customers }: { customers: any[] }) {
+interface RiskCustomer {
+    name: string;
+    email: string;
+    totalOverdue: number;
+    count: number;
+    lastInvoiceId: number | null;
+}
+
+export function RiskTable({ customers }: { customers: RiskCustomer[] }) {
     const router = useRouter();
     const [sendingId, setSendingId] = useState<number | null>(null);
 
-    const handleSendReminder = async (invoiceId: number) => {
+    const handleSendReminder = async (invoiceId: number | null) => {
+        if (!invoiceId) return;
         try {
             setSendingId(invoiceId);
             const res = await fetch("/api/reminders/send", {

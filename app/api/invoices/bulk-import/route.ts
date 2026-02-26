@@ -9,10 +9,14 @@ import { auth } from "@/app/utils/auth";
 export async function POST(req: Request) {
     try {
         const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         // Fetch settings if user is authenticated
-        const settings = session?.user?.id ? await prisma.companySettings.findUnique({
+        const settings = await prisma.companySettings.findUnique({
             where: { userId: session.user.id }
-        }) : null;
+        });
 
         const text = await req.text();
         console.log("[BulkImport] Received text length:", text.length);
@@ -142,6 +146,7 @@ export async function POST(req: Request) {
         }
 
         const createdInvoices = [];
+        const skippedInvoices = [];
         const errors = [];
 
         for (const txn of transactions) {
@@ -214,6 +219,20 @@ export async function POST(req: Request) {
                     });
                     if (existingInvoice) {
                         console.log(`Skipping duplicate invoice: ${invoiceNumber}`);
+
+                        // FIX: If the existing invoice has no owner, claim it for this user
+                        if (!existingInvoice.ownerUserId && session?.user?.id) {
+                            console.log(`Claiming orphaned invoice: ${invoiceNumber} for user ${session.user.id}`);
+                            await prisma.invoice.update({
+                                where: { id: existingInvoice.id },
+                                data: {
+                                    ownerUserId: session.user.id,
+                                    userId: session.user.id
+                                }
+                            });
+                        }
+
+                        skippedInvoices.push(invoiceNumber);
                         continue;
                     }
                 }
@@ -221,6 +240,8 @@ export async function POST(req: Request) {
                 const invoice = await prisma.invoice.create({
                     data: {
                         invoiceNumber: invoiceNumber,
+                        ownerUserId: session?.user?.id, // CRITICAL FIX: Link to user
+                        userId: session?.user?.id,      // Linking with both fields just in case
                         senderName: settings?.name || "Shiv Hardware",
                         senderEmail: settings?.email || "shivhardware@gmail.com",
                         senderAddress: settings?.address || "Shiv Hardware, Nadiad",
@@ -249,8 +270,10 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({
-            message: `Successfully created ${createdInvoices.length} invoices.`,
+            message: `Processed ${transactions.length} items. Created ${createdInvoices.length} invoices. Skipped ${skippedInvoices.length} duplicates.`,
             createdCount: createdInvoices.length,
+            skippedCount: skippedInvoices.length,
+            skippedInvoices: skippedInvoices,
             errors: errors
         });
 

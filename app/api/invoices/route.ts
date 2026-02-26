@@ -1,20 +1,82 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/app/utils/db";
+import { auth } from "@/app/utils/auth";
+import { normalizeReminderSettings, normalizeReminderChannel } from "@/app/utils/invoiceReminders";
+
+function isReminderSchemaMismatch(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("autoReminderEnabled") ||
+    message.includes("ownerUserId") ||
+    message.includes("clientPhone") ||
+    message.includes("reminderOffsets") ||
+    message.includes("reminderChannel") ||
+    message.includes("overdueReminderEnabled") ||
+    message.includes("overdueReminderEveryDays") ||
+    message.includes("column does not exist") ||
+    message.includes("Unknown arg") ||
+    message.includes("Unknown field")
+  );
+}
 
 // GET: List all invoices
-import { auth } from "@/app/utils/auth";
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const invoices = await prisma.invoice.findMany({
-      where: { userId: session.user.id },
-      include: { items: true },
-      orderBy: { date: "desc" },
-    });
+    const withItems = req.nextUrl?.searchParams?.get("withItems") === "true";
+    const ownerUserId = session.user.id;
+    const baseSelect = {
+      id: true,
+      invoiceNumber: true,
+      clientName: true,
+      clientEmail: true,
+      clientAddress: true,
+      senderName: true,
+      senderEmail: true,
+      senderAddress: true,
+      total: true,
+      subtotal: true,
+      status: true,
+      date: true,
+      dueDate: true,
+      currency: true,
+      note: true,
+      customer: true,
+      amount: true,
+      amountPaid: true,
+      balance: true,
+      autoReminderEnabled: true,
+      reminderOffsets: true,
+      reminderChannel: true,
+      overdueReminderEnabled: true,
+      overdueReminderEveryDays: true,
+      clientPhone: true,
+    };
+    const invoices = withItems
+      ? await prisma.invoice.findMany({
+        where: { ownerUserId: session?.user?.id ?? "" },
+        include: {
+          items: {
+            select: {
+              id: true,
+              description: true,
+              hsnCode: true,
+              quantity: true,
+              rate: true,
+              amount: true,
+            },
+          },
+        },
+        orderBy: { date: "desc" },
+      })
+      : await prisma.invoice.findMany({
+        where: { ownerUserId: session?.user?.id ?? "" },
+        select: baseSelect,
+        orderBy: { date: "desc" },
+      });
     return NextResponse.json(invoices);
   } catch (error) {
     console.error("Failed to fetch invoices:", error);
@@ -29,6 +91,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
+    // session already fetched above
     const data = await req.json();
     const {
       senderName,
@@ -36,6 +99,7 @@ export async function POST(req: NextRequest) {
       senderAddress,
       clientName,
       clientEmail,
+      clientPhone,
       clientAddress,
       invoiceNumber,
       date,
@@ -83,7 +147,7 @@ export async function POST(req: NextRequest) {
 
     const invoice = await prisma.invoice.create({
       data: {
-        userId: session.user.id,
+        ownerUserId: session?.user?.id ?? "",
         senderName: senderName || "",
         senderEmail: senderEmail || "",
         senderAddress: senderAddress || "",
@@ -124,7 +188,7 @@ export async function POST(req: NextRequest) {
         },
       },
       include: { items: true },
-    } as any);
+    });
 
     return NextResponse.json(invoice, { status: 201 });
   } catch (error) {

@@ -10,8 +10,4 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
-// Warm up the connection on first import
-// This prevents the first real query from being slow
-prisma.$connect().catch((e) => {
-  console.warn('Prisma connection warmup failed (will retry on first query):', e.message)
-})
+// Connection will be established lazily on the first query

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { InvoiceList } from "./InvoiceList";
 import { PaymentDialog } from "./PaymentDialog";
@@ -43,7 +43,10 @@ type Invoice = {
   note: string;
   customer: string;
   amount: string;
-  items: InvoiceItem[];
+  amountPaid?: string;
+  balance?: string;
+  clientPhone?: string;
+  items?: InvoiceItem[];
 };
 
 export default function InvoicesPage() {
@@ -64,7 +67,7 @@ export default function InvoicesPage() {
     setIsLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/invoices");
+      const res = await fetch("/api/invoices?withItems=false");
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setInvoices(data);
@@ -97,7 +100,10 @@ export default function InvoicesPage() {
         });
         const result = await res.json();
         if (res.ok) {
-          alert(`Import successful: ${result.createdCount} records created.`);
+          const msg = type === 'customer'
+            ? `Import successful: ${result.createdCount} records created.`
+            : `Imported ${result.createdCount} new invoices. ${result.skippedCount || 0} duplicates were skipped (but now visible if they were orphaned).`;
+          alert(msg);
           if (type === 'invoice') fetchInvoices();
         } else {
           alert(`Import failed: ${result.error || "Unknown error"}`);
@@ -129,7 +135,7 @@ export default function InvoicesPage() {
         });
         const result = await res.json();
         if (res.ok) {
-          alert(`Tally import successful: ${result.createdCount} invoices created.`);
+          alert(`Tally import successful: ${result.createdCount} invoices created. ${result.skippedCount || 0} duplicates skipped.`);
           fetchInvoices();
         } else {
           alert(`Tally import failed: ${result.error || "Unknown error"}`);
@@ -173,14 +179,17 @@ export default function InvoicesPage() {
     setFilteredInvoices(result);
   }, [search, statusFilter, invoices]);
 
-  // Stats
-  const now = new Date();
-  const totalRevenue = invoices.reduce((s, inv) => s + parseFloat(inv.total || inv.amount || "0"), 0);
-  const paidCount = invoices.filter((inv) => inv.status === "Paid").length;
-  const pendingCount = invoices.filter((inv) => inv.status === "Pending").length;
-  const overdueCount = invoices.filter((inv) =>
-    inv.status === "Pending" && inv.dueDate && new Date(inv.dueDate) < now
-  ).length;
+  const { totalRevenue, paidCount, overdueCount } = useMemo(() => {
+    const currentDate = new Date();
+
+    return {
+      totalRevenue: invoices.reduce((s, inv) => s + parseFloat(inv.total || inv.amount || "0"), 0),
+      paidCount: invoices.filter((inv) => inv.status === "Paid").length,
+      overdueCount: invoices.filter((inv) =>
+        inv.status === "Pending" && inv.dueDate && new Date(inv.dueDate) < currentDate
+      ).length,
+    };
+  }, [invoices]);
 
   async function handleDelete(inv: Invoice) {
     if (!confirm(`Delete invoice ${inv.invoiceNumber || `#${inv.id}`}?`)) return;
@@ -219,21 +228,90 @@ export default function InvoicesPage() {
     }
   }
 
+  async function handleRunAutoReminders() {
+    if (!confirm("Run auto-reminder scan for all overdue/upcoming invoices?")) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/reminders/auto", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Scan complete. Sent: ${data.sentCount}, Skipped: ${data.skippedCount}, Failed: ${data.failedCount}`);
+      } else {
+        alert("Failed to run reminders: " + (data.error || "Unknown error"));
+      }
+    } catch {
+      alert("Error triggering auto reminders");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleSendSms(inv: Invoice) {
+    const phone = window.prompt("Enter client phone number (e.g. +919876543210):", inv.clientPhone || "");
+    if (!phone) return;
+
+    try {
+      const res = await fetch("/api/invoices/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId: inv.id, phoneNumber: phone }),
+      });
+
+      if (res.ok) {
+        alert("SMS sent successfully!");
+      } else {
+        const err = await res.json();
+        alert("Failed to send SMS: " + err.error);
+      }
+    } catch {
+      alert("Error sending SMS");
+    }
+  }
+
   const [settings, setSettings] = useState<{ logo: string | null; signature: string | null } | undefined>();
 
-  useEffect(() => {
-    fetch("/api/settings")
-      .then((res) => res.json())
-      .then((data) => setSettings(data))
-      .catch(() => console.error("Failed to load settings"));
-  }, []);
+  async function getSettingsForPdf() {
+    if (settings !== undefined) return settings;
 
-  function handleDownload(inv: Invoice) {
     try {
-      console.log("Downloading invoice:", inv);
-      generateInvoicePDF(inv, settings);
+      const res = await fetch("/api/settings");
+      if (!res.ok) throw new Error("Failed to fetch settings");
+
+      const data = await res.json();
+      setSettings(data);
+      return data;
     } catch (e) {
-      console.error("PDF Generation Error:", e);
+      console.error("Settings load failed:", e);
+      return undefined;
+    }
+  }
+
+  async function fetchInvoiceDetailsForDownload(invoiceId: number) {
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}`);
+      if (!res.ok) throw new Error("Failed to fetch invoice details");
+      return await res.json();
+    } catch (e) {
+      console.error("Invoice details load failed:", e);
+      return null;
+    }
+  }
+
+  async function handleDownload(inv: Invoice) {
+    try {
+      const [invoiceData, settingsData] = await Promise.all([
+        inv.items?.length ? Promise.resolve(inv) : fetchInvoiceDetailsForDownload(inv.id),
+        getSettingsForPdf(),
+      ]);
+
+      if (!invoiceData) {
+        alert("Failed to load invoice details");
+        return;
+      }
+
+      generateInvoicePDF(invoiceData, settingsData);
+    } catch (e) {
+      console.error("PDF generation error:", e);
       alert("Failed to generate PDF");
     }
   }
@@ -297,6 +375,15 @@ export default function InvoicesPage() {
           >
             <FileText className="h-4 w-4" />
             Import Customers
+          </Button>
+          <Button
+            onClick={handleRunAutoReminders}
+            className="bg-white border border-gray-200 text-amber-600 hover:bg-amber-50 font-medium px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm"
+            disabled={isLoading}
+            title="Scan all invoices and send reminders based on settings"
+          >
+            <AlertTriangle className="h-4 w-4" />
+            Run Reminders
           </Button>
           <Button
             onClick={() => fileInputRef.current?.click()}
@@ -425,6 +512,7 @@ export default function InvoicesPage() {
               onDelete={handleDelete}
               onMarkPaid={handleMarkPaid}
               onReminder={handleReminder}
+              onSendSms={handleSendSms}
               onDownload={handleDownload}
               onRecordPayment={handleRecordPayment}
             />

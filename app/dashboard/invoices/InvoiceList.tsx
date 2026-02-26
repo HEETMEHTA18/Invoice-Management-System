@@ -2,7 +2,7 @@ import React from "react";
 import { InvoiceActions } from "./InvoiceActions";
 import { FileText } from "lucide-react";
 
-export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder, onDownload, onRecordPayment }: any) {
+export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder, onSendSms, onDownload, onRecordPayment }: any) {
   // Safe date helper
   const formatDate = (dateString: any) => {
     if (!dateString) return "—";
@@ -106,6 +106,7 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
                   onDelete={() => onDelete && onDelete(inv)}
                   onMarkPaid={() => onMarkPaid && onMarkPaid(inv)}
                   onReminder={() => onReminder && onReminder(inv)}
+                  onSendSms={() => onSendSms && onSendSms(inv)}
                   onDownload={() => onDownload && onDownload(inv)}
                   onRecordPayment={() => onRecordPayment && onRecordPayment(inv)}
                 />

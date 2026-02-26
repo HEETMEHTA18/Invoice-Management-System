@@ -1,7 +1,15 @@
 
 import { Banknote, Clock, AlertTriangle, TrendingUp } from "lucide-react";
 
-export function DashboardStats({ stats }: { stats: any }) {
+interface DashboardStatsData {
+    totalRevenue: number;
+    pendingAmount: number;
+    overdueAmount: number;
+    totalInvoices: number;
+    highRiskCount: number;
+}
+
+export function DashboardStats({ stats }: { stats?: DashboardStatsData }) {
     if (!stats) return null;
 
     const cards = [

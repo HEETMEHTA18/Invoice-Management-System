@@ -189,7 +189,7 @@ export default function InvoiceDetailPage() {
 
             {/* Invoice Document / Form */}
             <Card className="w-full max-w-4xl bg-white shadow-lg rounded-none sm:rounded-lg overflow-hidden border border-gray-200" id="invoice-container">
-                <div className="p-10 min-h-[1100px]" ref={invoiceRef}>
+                <div className="p-10 min-h-275" ref={invoiceRef}>
                     {/* Header */}
                     <div className="flex justify-between items-start mb-12">
                         <div>
