@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Plus,
     Search,
@@ -174,12 +175,23 @@ export default function ProductsPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-20 text-center">
-                                        <Loader2 className="h-8 w-8 animate-spin text-gray-300 mx-auto" />
-                                        <p className="text-sm text-gray-500 mt-2">Loading products...</p>
-                                    </td>
-                                </tr>
+                                [...Array(5)].map((_, i) => (
+                                    <tr key={i}>
+                                        <td className="px-6 py-4">
+                                            <Skeleton className="h-4 w-40 mb-1.5" />
+                                            <Skeleton className="h-3 w-56" />
+                                        </td>
+                                        <td className="px-6 py-4"><Skeleton className="h-4 w-16" /></td>
+                                        <td className="px-6 py-4 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                                        <td className="px-6 py-4 text-center"><Skeleton className="h-5 w-12 rounded mx-auto" /></td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Skeleton className="h-7 w-7 rounded-lg" />
+                                                <Skeleton className="h-7 w-7 rounded-lg" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
                             ) : filteredProducts.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-20 text-center">

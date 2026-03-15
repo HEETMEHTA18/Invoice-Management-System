@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 
 // Using OCR.space Free API
 // Get a free key at https://ocr.space/ocrapi
@@ -253,8 +254,14 @@ function tryParseDate(dateStr: string): string | null {
     return null;
 }
 
+
 export async function POST(req: NextRequest) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const formData = await req.formData();
         const file = formData.get("file") as File | null;
 

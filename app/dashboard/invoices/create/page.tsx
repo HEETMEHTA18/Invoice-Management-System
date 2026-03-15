@@ -33,6 +33,8 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { REMINDER_CHANNEL_OPTIONS, REMINDER_OFFSET_OPTIONS, type ReminderChannel } from "@/lib/reminders";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 type InvoiceItem = {
   description: string;
@@ -94,13 +96,13 @@ function CreateInvoiceContent() {
         });
         const result = await res.json();
         if (res.ok) {
-          alert(`Import successful: ${result.createdCount} records created.`);
-          router.push("/dashboard/invoices"); // Redirect to list to see imported data
+          toast.success(`Import successful: ${result.createdCount} records created.`);
+          router.push("/dashboard/invoices");
         } else {
-          alert(`Import failed: ${result.error || "Unknown error"}`);
+          toast.error(`Import failed: ${result.error || "Unknown error"}`);
         }
       } catch (err) {
-        alert("Import failed. See console.");
+        toast.error("Import failed. See console for details.");
         console.error(err);
       } finally {
         setLoading(false);
@@ -195,9 +197,9 @@ function CreateInvoiceContent() {
         });
         if (res.ok) {
           await fetchProducts();
-          alert("Product updated in master catalog!");
+          toast.success("Product updated in master catalog!");
         } else {
-          alert("Failed to update product master.");
+          toast.error("Failed to update product master.");
         }
       } else {
         // Create
@@ -213,13 +215,13 @@ function CreateInvoiceContent() {
         });
         if (res.ok) {
           await fetchProducts();
-          alert("Product added to master catalog!");
+          toast.success("Product added to master catalog!");
         } else {
-          alert("Failed to add product to master.");
+          toast.error("Failed to add product to master.");
         }
       }
     } catch (err) {
-      alert("Error syncing product master.");
+      toast.error("Error syncing product master.");
     } finally {
       setUpdatingItemIndex(null);
     }
@@ -833,7 +835,7 @@ function CreateInvoiceContent() {
         const invoice = await res.json();
         setCreatedInvoiceId(invoice.id);
         setSuccess(true);
-        if (isEditing) alert("Invoice updated successfully!");
+        if (isEditing) toast.success("Invoice updated successfully!");
       }
     } catch {
       setError(`Failed to ${isEditing ? "update" : "create"} invoice`);
@@ -862,7 +864,7 @@ function CreateInvoiceContent() {
         const err = await res.json();
         setError(err.error || "Failed to send invoice");
       } else {
-        alert(`Invoice sent to ${clientEmail} successfully!`);
+        toast.success(`Invoice sent to ${clientEmail} successfully!`);
       }
     } catch {
       setError("Failed to send invoice");
@@ -884,16 +886,72 @@ function CreateInvoiceContent() {
       });
 
       if (res.ok) {
-        alert("SMS sent successfully!");
+        toast.success("SMS sent successfully!");
       } else {
         const err = await res.json();
-        alert("Failed to send SMS: " + err.error);
+        toast.error("Failed to send SMS: " + err.error);
       }
     } catch {
-      alert("Error sending SMS");
+      toast.error("Error sending SMS");
     } finally {
       setSendingSms(false);
     }
+  }
+
+  if (loading && isEditing) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-8 w-16" />
+              <div className="h-6 w-px bg-gray-200" />
+              <Skeleton className="h-6 w-32" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-20" />
+              <Skeleton className="h-9 w-20" />
+            </div>
+          </div>
+        </div>
+        <div className="max-w-5xl mx-auto p-6">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <Skeleton className="h-10 w-10 rounded-lg" />
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {[...Array(3)].map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="h-3 w-24 mb-1.5" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="p-6 border-gray-100 last:border-l">
+                  <Skeleton className="h-3 w-32 mb-4" />
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, j) => (
+                      <div key={j}>
+                        <Skeleton className="h-3 w-20 mb-1" />
+                        <Skeleton className="h-10 w-full rounded-lg" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -1983,10 +2041,30 @@ function CreateInvoiceContent() {
 export default function CreateInvoicePage() {
   return (
     <Suspense fallback={
-      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-[#596778] border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 font-medium">Loading Invoice Editor...</p>
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-8 w-16" />
+              <div className="h-6 w-px bg-gray-200" />
+              <Skeleton className="h-6 w-32" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-20" />
+              <Skeleton className="h-9 w-20" />
+            </div>
+          </div>
+        </div>
+        <div className="max-w-5xl mx-auto p-6">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 p-6">
+            <Skeleton className="h-10 w-full mb-6" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+          </div>
+          <Skeleton className="h-[400px] w-full rounded-xl" />
         </div>
       </div>
     }>

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
 
 // POST: Record a payment
 export async function POST(req: NextRequest) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const data = await req.json();
         const { invoiceId, amount, method, date, note, transactionId } = data;
 
@@ -16,13 +22,13 @@ export async function POST(req: NextRequest) {
 
         // Use a transaction to ensure atomic update
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Fetch current invoice state
-            const invoice = await tx.invoice.findUnique({
-                where: { id: invId },
+            // 1. Fetch current invoice state WITH ownership check
+            const invoice = await tx.invoice.findFirst({
+                where: { id: invId, ownerUserId: session.user.id },
                 select: { total: true, amountPaid: true, balance: true }
             });
 
-            if (!invoice) throw new Error("Invoice not found");
+            if (!invoice) throw new Error("Invoice not found or unauthorized");
 
             // 2. Create the payment record
             const payment = await tx.payment.create({

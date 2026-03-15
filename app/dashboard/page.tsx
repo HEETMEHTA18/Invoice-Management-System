@@ -5,6 +5,7 @@ import { RiskTable } from "./components/RiskTable";
 import { AnalyticsCharts } from "./components/AnalyticsCharts";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type RevenueRange = "day" | "week" | "month";
 
@@ -104,9 +105,77 @@ export default function DashboardPage() {
                     {error}
                 </div>
             ) : loading && !data ? (
-                <div className="flex justify-center items-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                </div>
+                <>
+                    {/* KPI Skeleton Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <Skeleton className="h-3 w-24 mb-3" />
+                                        <Skeleton className="h-7 w-32" />
+                                    </div>
+                                    <Skeleton className="h-10 w-10 rounded-lg" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Charts Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                            <Skeleton className="h-5 w-36 mb-4" />
+                            <Skeleton className="h-[220px] w-full rounded-lg" />
+                        </div>
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                            <Skeleton className="h-5 w-28 mb-4" />
+                            <Skeleton className="h-[220px] w-full rounded-full mx-auto" style={{ maxWidth: 220 }} />
+                        </div>
+                    </div>
+
+                    {/* Risk Table + Recent Activity Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                                <Skeleton className="h-5 w-44" />
+                                <Skeleton className="h-5 w-20 rounded-full" />
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                                {[...Array(4)].map((_, i) => (
+                                    <div key={i} className="px-6 py-4 flex items-center justify-between">
+                                        <div>
+                                            <Skeleton className="h-4 w-36 mb-2" />
+                                            <Skeleton className="h-3 w-24" />
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="h-4 w-20" />
+                                            <Skeleton className="h-8 w-16 rounded-lg" />
+                                            <Skeleton className="h-8 w-14 rounded-lg" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                            <Skeleton className="h-4 w-32 mb-4" />
+                            <div className="space-y-4">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                        <div>
+                                            <Skeleton className="h-4 w-28 mb-1.5" />
+                                            <Skeleton className="h-3 w-20" />
+                                        </div>
+                                        <div className="text-right">
+                                            <Skeleton className="h-4 w-16 mb-1.5 ml-auto" />
+                                            <Skeleton className="h-4 w-12 rounded ml-auto" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </>
             ) : (
                 <>
                     {/* Key Performance Indicators */}
@@ -154,8 +223,8 @@ export default function DashboardPage() {
                           ${inv.status === 'Paid' ? 'bg-green-100 text-green-700' :
                                                         inv.status === 'Overdue' ? 'bg-red-100 text-red-700' :
                                                             inv.status === 'Pending' ? 'bg-blue-100 text-blue-700' :
-                                                            inv.status === 'Draft' ? 'bg-gray-100 text-gray-700' :
-                                                            'bg-yellow-100 text-yellow-700'}`}>
+                                                                inv.status === 'Draft' ? 'bg-gray-100 text-gray-700' :
+                                                                    'bg-yellow-100 text-yellow-700'}`}>
                                                     {inv.status}
                                                 </span>
                                             </div>

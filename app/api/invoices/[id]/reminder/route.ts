@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendInvoiceReminderById } from "@/lib/mail-service";
 
@@ -16,6 +17,16 @@ export async function POST(
     const invoiceId = Number(id);
     if (!Number.isInteger(invoiceId)) {
       return NextResponse.json({ error: "Invalid invoice id" }, { status: 400 });
+    }
+
+    // Verify ownership
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      select: { ownerUserId: true }
+    });
+
+    if (!invoice || (invoice.ownerUserId && invoice.ownerUserId !== session.user.id)) {
+      return NextResponse.json({ error: "Unauthorized or invoice not found" }, { status: 404 });
     }
 
     const result = await sendInvoiceReminderById({

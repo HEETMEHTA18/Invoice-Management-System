@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "Create, send, and track professional invoices effortlessly. Free invoicing platform for modern businesses with PDF generation, email delivery, and real-time payment tracking.",
 };
 
+import { Toaster } from "sonner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,6 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SessionProvider>{children}</SessionProvider>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

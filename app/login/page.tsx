@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
 import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function LoginContent() {
     const { data: session, status } = useSession();
@@ -98,8 +99,26 @@ function LoginContent() {
 export default function Login() {
     return (
         <Suspense fallback={
-            <div className="flex h-screen w-full items-center justify-center">
-                <div className="text-gray-500">Loading...</div>
+            <div className="flex h-screen w-full items-center justify-center px-4">
+                <Card className="w-full max-w-sm">
+                    <CardHeader>
+                        <Skeleton className="h-8 w-1/2 mb-2" />
+                        <Skeleton className="h-4 w-3/4" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-4">
+                            <div className="grid gap-2">
+                                <Skeleton className="h-4 w-12" />
+                                <Skeleton className="h-10 w-full" />
+                            </div>
+                            <div className="grid gap-2">
+                                <Skeleton className="h-4 w-20" />
+                                <Skeleton className="h-10 w-full" />
+                            </div>
+                            <Skeleton className="h-10 w-full mt-2" />
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         }>
             <LoginContent />

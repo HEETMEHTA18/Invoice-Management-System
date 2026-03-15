@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface PaymentDialogProps {
     isOpen: boolean;
@@ -47,15 +48,16 @@ export function PaymentDialog({ isOpen, onClose, invoice, onSuccess }: PaymentDi
             });
 
             if (res.ok) {
+                toast.success("Payment recorded successfully");
                 onSuccess();
                 onClose();
             } else {
                 const data = await res.json();
-                alert(data.error || "Failed to record payment");
+                toast.error(data.error || "Failed to record payment");
             }
         } catch (error) {
             console.error(error);
-            alert("An error occurred");
+            toast.error("An error occurred while recording payment");
         } finally {
             setIsLoading(false);
         }

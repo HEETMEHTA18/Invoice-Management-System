@@ -293,7 +293,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 // DELETE: Delete an invoice
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { id } = await params;
+
+    // Ensure the invoice belongs to the user before deleting
+    const existing = await prisma.invoice.findUnique({
+      where: { id: Number(id), ownerUserId: session.user.id }
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Invoice not found or unauthorized" }, { status: 404 });
+    }
+
     await prisma.invoice.delete({ where: { id: Number(id) } });
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -305,11 +318,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 // PATCH: Partial update (e.g., status)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { id } = await params;
     const data = await req.json();
 
     const invoice = await prisma.invoice.update({
-      where: { id: Number(id) },
+      where: { id: Number(id), ownerUserId: session.user.id },
       data: data,
     });
     return NextResponse.json(invoice);

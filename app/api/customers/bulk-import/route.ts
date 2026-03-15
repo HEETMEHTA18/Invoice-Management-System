@@ -1,10 +1,16 @@
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import * as yaml from "js-yaml";
+import { auth } from "@/lib/auth";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const text = await req.text();
         let data;
 
@@ -19,7 +25,6 @@ export async function POST(req: Request) {
         }
 
         if (!data || !data.customers || !Array.isArray(data.customers)) {
-            // Fallback: check if root is array
             if (Array.isArray(data)) {
                 data = { customers: data };
             } else {
@@ -29,15 +34,20 @@ export async function POST(req: Request) {
 
         const created = [];
         const errors = [];
-        const updated = [];
+        const userId = session.user.id;
 
         for (const cust of data.customers) {
             try {
                 if (!cust.name) continue;
 
-                // Upsert customer
+                // Upsert customer with owner isolation
                 const customer = await prisma.customer.upsert({
-                    where: { name: cust.name },
+                    where: {
+                        name_ownerUserId: {
+                            name: cust.name,
+                            ownerUserId: userId
+                        }
+                    },
                     update: {
                         openingBalance: parseFloat(cust.opening_balance) || 0,
                         address: Array.isArray(cust.address) ? cust.address.join(", ") : cust.address || "",
@@ -50,6 +60,7 @@ export async function POST(req: Request) {
                     },
                     create: {
                         name: cust.name,
+                        ownerUserId: userId,
                         openingBalance: parseFloat(cust.opening_balance) || 0,
                         address: Array.isArray(cust.address) ? cust.address.join(", ") : cust.address || "",
                         state: cust.state || "",
@@ -61,9 +72,7 @@ export async function POST(req: Request) {
                     }
                 });
 
-                // rudimentary tracking of created/updated (prisma upsert doesn't tell us easily)
                 created.push(customer);
-
             } catch (error) {
                 console.error("Error creating customer:", error);
                 errors.push({ name: cust.name, error: String(error) });

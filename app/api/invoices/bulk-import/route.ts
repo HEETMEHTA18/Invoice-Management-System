@@ -14,6 +14,23 @@ export async function POST(req: Request) {
         }
 
         // Fetch settings if user is authenticated
+        // First, ensure the user record exists in the database (handles wiped DB with active session)
+        let user = await prisma.user.findUnique({
+            where: { id: session.user.id }
+        });
+
+        if (!user && session.user.email) {
+            console.log("[BulkImport] User missing from DB, recreating record for session ID:", session.user.id);
+            user = await prisma.user.create({
+                data: {
+                    id: session.user.id,
+                    email: session.user.email,
+                    name: session.user.name,
+                    image: session.user.image,
+                }
+            });
+        }
+
         const settings = await prisma.companySettings.findUnique({
             where: { userId: session.user.id }
         });

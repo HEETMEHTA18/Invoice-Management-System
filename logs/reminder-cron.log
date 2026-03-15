@@ -29,3 +29,34 @@ Result: {
   "failedCount": 0,
   "failures": []
 }
+Triggering auto reminders at http://localhost:3000/api/reminders/auto...
+Error triggering reminders: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13510:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async triggerReminders (e:\Heet\B2B\scripts\run-reminders.js:16:26) {
+  [cause]: AggregateError [ECONNREFUSED]: 
+      at internalConnectMultiple (node:net:1134:18)
+      at afterConnectMultiple (node:net:1715:7) {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+Triggering auto reminders at http://localhost:3000/api/reminders/auto...
+Attempt 1/3 failed: fetch failed
+Cause code: ECONNREFUSED
+^CTriggering auto reminders at http://localhost:3000/api/reminders/auto...
+Attempt 1/3 failed: fetch failed
+Cause code: ECONNREFUSED
+Attempt 2/3 failed: fetch failed
+Cause code: ECONNREFUSED
+Attempt 3/3 failed: fetch failed
+Cause code: ECONNREFUSED
+Could not connect to localhost. Ensure the Next.js app is running, or set REMINDER_TARGET_URL/SITE_URL to your live domain.
+Triggering auto reminders at http://localhost:3000/api/reminders/auto...
+Attempt 1/3 failed: fetch failed
+Cause code: ECONNREFUSED
+Attempt 2/3 failed: fetch failed
+Cause code: ECONNREFUSED
+Attempt 3/3 failed: fetch failed
+Cause code: ECONNREFUSED
+Could not connect to localhost. Ensure the Next.js app is running, or set REMINDER_TARGET_URL/SITE_URL to your live domain.

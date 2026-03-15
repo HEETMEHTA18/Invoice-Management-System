@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
 
-// GET: List all products
+// GET: List all products for current user
 export async function GET() {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const products = await prisma.product.findMany({
+            where: { ownerUserId: session.user.id },
             orderBy: { name: "asc" },
         });
         return NextResponse.json(products);
@@ -14,9 +21,14 @@ export async function GET() {
     }
 }
 
-// POST: Create a new product
+// POST: Create a new product for current user
 export async function POST(req: NextRequest) {
     try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const data = await req.json();
         const { name, description, basePrice, hsnCode, defaultTaxRate } = data;
 
@@ -31,6 +43,7 @@ export async function POST(req: NextRequest) {
                 basePrice: Number(basePrice),
                 hsnCode,
                 defaultTaxRate: Number(defaultTaxRate || 0),
+                ownerUserId: session.user.id,
             },
         });
 

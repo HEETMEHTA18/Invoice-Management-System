@@ -21,6 +21,8 @@ model User {
   Authenticator Authenticator[]
   invoices      Invoice[]
   sessions      Session[]
+  customers     Customer[]
+  products      Product[]
 }
 
 model Account {
@@ -140,7 +142,7 @@ model InvoiceItem {
 
 model Customer {
   id               Int       @id @default(autoincrement())
-  name             String    @unique
+  name             String
   group            String?
   openingBalance   Decimal   @default(0) @db.Decimal(10, 2)
   address          String?
@@ -157,7 +159,12 @@ model Customer {
   isVipExempt      Boolean   @default(false)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  ownerUserId      String?
+  user             User?     @relation(fields: [ownerUserId], references: [id])
   invoices         Invoice[]
+
+  @@index([ownerUserId])
+  @@unique([name, ownerUserId])
 }
 
 model CompanySettings {
@@ -182,6 +189,10 @@ model Product {
   defaultTaxRate Decimal  @default(0) @db.Decimal(5, 2)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  ownerUserId    String?
+  user           User?    @relation(fields: [ownerUserId], references: [id])
+
+  @@index([ownerUserId])
 }
 
 model Payment {

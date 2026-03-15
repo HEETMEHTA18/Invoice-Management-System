@@ -13,6 +13,7 @@ import {
     Building2,
     AlertTriangle,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SettingsPage() {
     const [logo, setLogo] = useState<string | null>(null);
@@ -179,8 +180,47 @@ export default function SettingsPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <div className="max-w-3xl mx-auto py-6">
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Skeleton className="h-10 w-10 rounded-lg" />
+                        <div>
+                            <Skeleton className="h-7 w-48 mb-2" />
+                            <Skeleton className="h-4 w-64" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+                    <div className="p-6 border-b border-gray-100 flex items-center gap-3">
+                        <Skeleton className="h-5 w-5 rounded" />
+                        <div>
+                            <Skeleton className="h-5 w-32 mb-1" />
+                            <Skeleton className="h-3 w-64" />
+                        </div>
+                    </div>
+                    <div className="p-6">
+                        <Skeleton className="w-full h-44 rounded-xl" />
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+                    <div className="p-6 border-b border-gray-100 flex items-center gap-3">
+                        <Skeleton className="h-5 w-5 rounded" />
+                        <div>
+                            <Skeleton className="h-5 w-32 mb-1" />
+                            <Skeleton className="h-3 w-64" />
+                        </div>
+                    </div>
+                    <div className="p-6 flex gap-4">
+                        <Skeleton className="flex-1 h-40 rounded-xl" />
+                        <Skeleton className="flex-1 h-40 rounded-xl" />
+                    </div>
+                </div>
+
+                <div className="flex justify-end">
+                    <Skeleton className="h-10 w-40 rounded-md" />
+                </div>
             </div>
         );
     }

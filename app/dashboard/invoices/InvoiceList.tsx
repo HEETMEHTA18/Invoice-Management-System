@@ -1,6 +1,7 @@
 import React from "react";
 import { InvoiceActions } from "./InvoiceActions";
 import { FileText } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder, onSendSms, onVoiceCall, onDownload, onRecordPayment }: any) {
   // Safe date helper
@@ -16,7 +17,24 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
 
   // Safe invoice check
   if (!invoices) {
-    return <div className="p-8 text-center text-gray-500">Loading invoices...</div>;
+    return (
+      <div className="bg-white rounded-lg border border-gray-200">
+        <div className="p-4 border-b border-gray-100 flex justify-between">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="p-4 border-b border-gray-50 last:border-0 flex justify-between">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (

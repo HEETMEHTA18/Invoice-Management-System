@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { InvoiceList } from "./InvoiceList";
 import { PaymentDialog } from "./PaymentDialog";
 import { generateInvoicePDF } from "@/lib/pdf";
@@ -17,6 +18,7 @@ import {
   AlertTriangle,
   Phone,
 } from "lucide-react";
+import { toast } from "sonner";
 
 type InvoiceItem = {
   id: number;
@@ -68,9 +70,11 @@ export default function InvoicesPage() {
     setIsLoading(true);
     setError("");
     try {
+      console.log("Fetching invoices...");
       const res = await fetch("/api/invoices?withItems=false");
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
+      console.log("Invoices received:", data.length);
       setInvoices(data);
       setFilteredInvoices(data);
     } catch {
@@ -103,14 +107,14 @@ export default function InvoicesPage() {
         if (res.ok) {
           const msg = type === 'customer'
             ? `Import successful: ${result.createdCount} records created.`
-            : `Imported ${result.createdCount} new invoices. ${result.skippedCount || 0} duplicates were skipped (but now visible if they were orphaned).`;
-          alert(msg);
+            : `Imported ${result.createdCount} new invoices. ${result.skippedCount || 0} duplicates were skipped.`;
+          toast.success(msg);
           if (type === 'invoice') fetchInvoices();
         } else {
-          alert(`Import failed: ${result.error || "Unknown error"}`);
+          toast.error(`Import failed: ${result.error || "Unknown error"}`);
         }
       } catch (err) {
-        alert("Import failed. See console.");
+        toast.error("Import failed. See console for details.");
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -136,13 +140,13 @@ export default function InvoicesPage() {
         });
         const result = await res.json();
         if (res.ok) {
-          alert(`Tally import successful: ${result.createdCount} invoices created. ${result.skippedCount || 0} duplicates skipped.`);
+          toast.success(`Tally import successful: ${result.createdCount} invoices created. ${result.skippedCount || 0} duplicates skipped.`);
           fetchInvoices();
         } else {
-          alert(`Tally import failed: ${result.error || "Unknown error"}`);
+          toast.error(`Tally import failed: ${result.error || "Unknown error"}`);
         }
       } catch (err) {
-        alert("Tally import failed. See console.");
+        toast.error("Tally import failed. Check console for details.");
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -220,12 +224,12 @@ export default function InvoicesPage() {
       const res = await fetch(`/api/invoices/${inv.id}/reminder`, { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || `Reminder sent to ${inv.clientName || inv.customer}`);
+        toast.success(data.message || `Reminder sent to ${inv.clientName || inv.customer}`);
       } else {
-        alert(data.error || "Failed to send reminder");
+        toast.error(data.error || "Failed to send reminder");
       }
     } catch {
-      alert("Failed to send reminder email");
+      toast.error("Failed to send reminder email");
     }
   }
 
@@ -236,12 +240,12 @@ export default function InvoicesPage() {
       const res = await fetch("/api/reminders/auto", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        alert(`Scan complete. Sent: ${data.sentCount}, Skipped: ${data.skippedCount}, Failed: ${data.failedCount}`);
+        toast.success(`Scan complete. Sent: ${data.sentCount}, Skipped: ${data.skippedCount}, Failed: ${data.failedCount}`);
       } else {
-        alert("Failed to run reminders: " + (data.error || "Unknown error"));
+        toast.error("Failed to run reminders: " + (data.error || "Unknown error"));
       }
     } catch {
-      alert("Error triggering auto reminders");
+      toast.error("Error triggering auto reminders");
     } finally {
       setIsLoading(false);
     }
@@ -259,42 +263,21 @@ export default function InvoicesPage() {
       });
 
       if (res.ok) {
-        alert("SMS sent successfully!");
+        toast.success("SMS sent successfully!");
       } else {
         const err = await res.json();
-        alert("Failed to send SMS: " + err.error);
+        toast.error("Failed to send SMS: " + err.error);
       }
     } catch {
-      alert("Error sending SMS");
+      toast.error("Error sending SMS");
     }
   }
 
   async function handleVoiceCall(inv: Invoice) {
-    if (!inv.clientPhone?.trim()) {
-      alert("No phone number on this invoice.\nPlease edit the invoice and add the client's phone number first.");
-      return;
-    }
-    if (inv.status === "Paid") {
-      alert("This invoice is already paid — no reminder needed!");
-      return;
-    }
-    if (!confirm(`Call ${inv.clientName} at ${inv.clientPhone} with a voice payment reminder?`)) return;
-
-    try {
-      const res = await fetch("/api/reminders/voice-call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId: inv.id }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert(`✅ Voice call initiated!\nProvider: ${data.provider}\nCall ID: ${data.callId}\n\nThe customer will receive a call from Riley (AI agent) shortly.`);
-      } else {
-        alert("❌ Voice call failed: " + (data.error || "Unknown error"));
-      }
-    } catch {
-      alert("Error initiating voice call");
-    }
+    toast.info("Voice Reminders (AI Agent) will be available in a future update!", {
+      description: "We are currently improving the voice agent experience for Indian numbers.",
+      duration: 5000,
+    });
   }
 
   const [settings, setSettings] = useState<{ logo: string | null; signature: string | null } | undefined>();
@@ -434,45 +417,62 @@ export default function InvoicesPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Invoices</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{invoices.length}</p>
+        {isLoading && invoices.length === 0 ? (
+          // Skeleton stat cards
+          [...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <Skeleton className="h-3 w-24 mb-3" />
+                  <Skeleton className="h-7 w-28" />
+                </div>
+                <Skeleton className="h-10 w-10 rounded-lg" />
+              </div>
             </div>
-            <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-gray-600" />
+          ))
+        ) : (
+          <>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Invoices</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{invoices.length}</p>
+                </div>
+                <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-gray-600" />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Paid / Overdue</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                <span className="text-green-600">{paidCount}</span>
-                <span className="text-gray-400 mx-1">/</span>
-                <span className="text-red-600">{overdueCount}</span>
-              </p>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Paid / Overdue</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    <span className="text-green-600">{paidCount}</span>
+                    <span className="text-gray-400 mx-1">/</span>
+                    <span className="text-red-600">{overdueCount}</span>
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                  <Filter className="h-5 w-5 text-gray-600" />
+                </div>
+              </div>
             </div>
-            <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
-              <Filter className="h-5 w-5 text-gray-600" />
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Revenue</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    ₹{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                  <Banknote className="h-5 w-5 text-gray-600" />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                ₹{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center">
-              <Banknote className="h-5 w-5 text-gray-600" />
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Search & Filter Bar */}
@@ -528,10 +528,35 @@ export default function InvoicesPage() {
           </div>
         )}
 
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400 mb-3" />
-            <p className="text-sm text-gray-500">Loading invoices...</p>
+        {isLoading && invoices.length === 0 ? (
+          // Skeleton table rows
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  {["Invoice", "Client", "Total", "Balance", "Status", "Date", "Due Date", "Actions"].map((h) => (
+                    <th key={h} scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {[...Array(6)].map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-6 py-4">
+                      <Skeleton className="h-4 w-32 mb-1.5" />
+                      <Skeleton className="h-3 w-24" />
+                    </td>
+                    <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-6 py-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                    <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-6 py-4"><Skeleton className="h-8 w-24 rounded-lg" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -556,6 +581,7 @@ export default function InvoicesPage() {
         invoice={selectedInvoiceForPayment}
         onSuccess={fetchInvoices}
       />
+      <p className="hidden">Debug: {isLoading ? "Loading" : "Loaded"}, {invoices.length} invoices</p>
     </div>
   );
 }
