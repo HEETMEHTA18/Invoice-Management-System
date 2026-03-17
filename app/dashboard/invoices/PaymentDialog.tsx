@@ -67,7 +67,7 @@ export function PaymentDialog({ isOpen, onClose, invoice, onSuccess }: PaymentDi
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px]" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>Record Payment for {invoice.invoiceNumber || `#${invoice.id}`}</DialogTitle>
                 </DialogHeader>

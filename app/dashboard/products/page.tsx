@@ -247,7 +247,7 @@ export default function ProductsPage() {
 
             {/* Product Modal */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[425px]" aria-describedby={undefined}>
                     <DialogHeader>
                         <DialogTitle>{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
                     </DialogHeader>
