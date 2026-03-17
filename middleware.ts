@@ -10,12 +10,13 @@ export function middleware(request: NextRequest) {
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://vapi.ai https://cdn.jsdelivr.net;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' blob: data: https://*.googleusercontent.com;
+    img-src 'self' blob: data: https://*.googleusercontent.com https://res.cloudinary.com;
     font-src 'self' https://fonts.gstatic.com;
     connect-src 'self' https://vapi.ai https://*.vapi.ai;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
+    frame-src blob: 'self';
     frame-ancestors 'none';
     block-all-mixed-content;
     upgrade-insecure-requests;

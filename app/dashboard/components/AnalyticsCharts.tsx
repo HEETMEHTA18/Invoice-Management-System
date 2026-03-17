@@ -110,13 +110,13 @@ export function AnalyticsCharts({
                     </div>
                 </div>
                 {revenueData && revenueData.length > 0 && revenueData.some(d => d.revenue > 0) ? (
-                    <div className="relative h-[300px] w-full">
+                    <div className="relative w-full">
                         {isRevenueLoading && (
                             <div className="absolute inset-0 z-10 grid place-items-center rounded-xl bg-white/70">
                                 <div className="h-6 w-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
                             </div>
                         )}
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={200}>
                             <BarChart data={revenueData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                                 <XAxis
@@ -170,8 +170,8 @@ export function AnalyticsCharts({
                 </div>
                 {statusData && statusData.length > 0 ? (
                     <div className="space-y-4">
-                        <div className="relative h-[250px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="relative w-full">
+                            <ResponsiveContainer width="100%" height={250}>
                                 <PieChart>
                                     <Pie
                                         data={statusData}

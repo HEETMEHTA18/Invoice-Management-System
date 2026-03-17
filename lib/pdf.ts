@@ -150,11 +150,13 @@ export const getInvoicePDFDoc = (invoice: Invoice, settings?: CompanySettings) =
         theme: "striped",
         headStyles: { fillColor: [89, 103, 120] },
         styles: { fontSize: 10, cellPadding: 3 },
+        margin: { left: 14, right: 14 },
+        tableWidth: "auto",
         columnStyles: {
             0: { cellWidth: "auto" },
-            1: { cellWidth: 20, halign: "center" },
-            2: { cellWidth: 30, halign: "right" },
-            3: { cellWidth: 30, halign: "right" },
+            1: { cellWidth: 18, halign: "center" },
+            2: { cellWidth: 28, halign: "right" },
+            3: { cellWidth: 28, halign: "right" },
         },
     });
 
