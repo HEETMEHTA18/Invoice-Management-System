@@ -19,8 +19,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // User isolation: Only allow access to invoices owned by the user
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: Number(id), ownerUserId: session.user.id },
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: Number(id),
+        OR: [{ ownerUserId: session.user.id }, { userId: session.user.id }],
+      },
       include: { items: true },
     });
     if (!invoice) {

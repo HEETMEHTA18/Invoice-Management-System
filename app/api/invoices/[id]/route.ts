@@ -29,8 +29,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const session = await auth();
     const userId = session?.user?.id;
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: Number(id), ownerUserId: userId },
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: Number(id),
+        OR: [{ ownerUserId: userId }, { userId }],
+      },
       include: { items: true },
     });
     if (!invoice) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -54,8 +57,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const session = await auth();
     const userId = session?.user?.id;
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const existingBase = await prisma.invoice.findUnique({
-      where: { id: invoiceId, ownerUserId: userId },
+    const existingBase = await prisma.invoice.findFirst({
+      where: {
+        id: invoiceId,
+        OR: [{ ownerUserId: userId }, { userId }],
+      },
       select: { amountPaid: true, dueDate: true },
     });
     if (!existingBase) {
@@ -74,10 +80,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     try {
       // User isolation: Only allow access to invoices owned by the user
-      const session = await auth();
-      if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      existingReminder = await prisma.invoice.findUnique({
-        where: { id: invoiceId, ownerUserId: session.user.id },
+      existingReminder = await prisma.invoice.findFirst({
+        where: {
+          id: invoiceId,
+          OR: [{ ownerUserId: userId }, { userId }],
+        },
         select: {
           ownerUserId: true,
           clientPhone: true,
@@ -214,9 +221,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     let invoice;
     try {
-      invoice = await prisma.invoice.update({
-        where: { id: invoiceId },
+      const updated = await prisma.invoice.updateMany({
+        where: {
+          id: invoiceId,
+          OR: [{ ownerUserId: userId }, { userId }],
+        },
         data: updateData as any,
+      });
+
+      if (updated.count === 0) {
+        return NextResponse.json({ error: "Invoice not found or unauthorized" }, { status: 404 });
+      }
+
+      invoice = await prisma.invoice.findUnique({
+        where: { id: invoiceId },
         include: { items: true },
       });
     } catch (error) {
@@ -231,11 +249,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       delete fallbackData.ownerUserId;
       delete fallbackData.clientPhone;
 
-      invoice = await prisma.invoice.update({
-        where: { id: invoiceId },
+      const updated = await prisma.invoice.updateMany({
+        where: {
+          id: invoiceId,
+          OR: [{ ownerUserId: userId }, { userId }],
+        },
         data: fallbackData,
+      });
+
+      if (updated.count === 0) {
+        return NextResponse.json({ error: "Invoice not found or unauthorized" }, { status: 404 });
+      }
+
+      invoice = await prisma.invoice.findUnique({
+        where: { id: invoiceId },
         include: { items: true },
       });
+    }
+
+    if (!invoice) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
     // Immediate reminder check
@@ -302,8 +335,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params;
 
     // Ensure the invoice belongs to the user before deleting
-    const existing = await prisma.invoice.findUnique({
-      where: { id: Number(id), ownerUserId: userId }
+    const existing = await prisma.invoice.findFirst({
+      where: {
+        id: Number(id),
+        OR: [{ ownerUserId: userId }, { userId }],
+      }
     });
 
     if (!existing) {
@@ -328,9 +364,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const data = await req.json();
 
-    const invoice = await prisma.invoice.update({
-      where: { id: Number(id), ownerUserId: userId },
-      data: data,
+    const updateResult = await prisma.invoice.updateMany({
+      where: {
+        id: Number(id),
+        OR: [{ ownerUserId: userId }, { userId }],
+      },
+      data,
+    });
+
+    if (updateResult.count === 0) {
+      return NextResponse.json({ error: "Invoice not found or unauthorized" }, { status: 404 });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: Number(id) },
     });
     return NextResponse.json(invoice);
   } catch (error) {

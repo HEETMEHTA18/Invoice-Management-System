@@ -4,9 +4,10 @@ import { prisma } from "@/lib/db";
 import { getReminderMatchForDate } from "@/lib/reminders";
 import { sendInvoiceReminderById } from "@/lib/mail-service";
 
+export const runtime = "nodejs";
+
 function isCronAuthorized(req: NextRequest) {
   const configuredSecret = process.env.CRON_SECRET || process.env.REMINDER_CRON_SECRET;
-  if (!configuredSecret) return false;
 
   const authHeader = req.headers.get("authorization");
   const bearer = authHeader?.startsWith("Bearer ")
@@ -14,7 +15,14 @@ function isCronAuthorized(req: NextRequest) {
     : null;
   const headerSecret = req.headers.get("x-cron-secret");
 
-  return bearer === configuredSecret || headerSecret === configuredSecret;
+  if (configuredSecret) {
+    return bearer === configuredSecret || headerSecret === configuredSecret;
+  }
+
+  // Fallback for Vercel Cron when no secret is configured.
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
+  const userAgent = (req.headers.get("user-agent") || "").toLowerCase();
+  return isVercelCron || userAgent.includes("vercel-cron");
 }
 
 /** Returns true if a customer qualifies as a long-term regular (≥ 2 years). */
@@ -142,9 +150,15 @@ async function runAutoReminderSweep(now: Date, limitUserId?: string, manualOverr
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
     const cronAllowed = isCronAuthorized(req);
-    const manualAllowed = !!session?.user?.id;
+    let manualUserId: string | undefined;
+
+    if (!cronAllowed) {
+      const session = await auth();
+      manualUserId = session?.user?.id;
+    }
+
+    const manualAllowed = !!manualUserId;
 
     if (!cronAllowed && !manualAllowed) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -152,8 +166,8 @@ export async function GET(req: NextRequest) {
 
     // Cron → scan all, no manualOverride (VIP exemption active)
     // Manual UI trigger → scan user's own invoices, allow overriding VIP exemption
-    const limitUserId = cronAllowed ? undefined : session?.user?.id;
-    const manualOverride = !cronAllowed && !!session?.user?.id;
+    const limitUserId = cronAllowed ? undefined : manualUserId;
+    const manualOverride = !cronAllowed && !!manualUserId;
 
     const result = await runAutoReminderSweep(new Date(), limitUserId, manualOverride);
     return NextResponse.json(result);
