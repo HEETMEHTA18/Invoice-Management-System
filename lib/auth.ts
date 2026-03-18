@@ -66,7 +66,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`
-      else if (new URL(url).origin === baseUrl) return url
+      try {
+        if (new URL(url).origin === baseUrl) return url
+      } catch {
+        // Ignore malformed callback URLs and use safe default below.
+      }
       return `${baseUrl}/dashboard`
     },
     async jwt({ token, user }) {

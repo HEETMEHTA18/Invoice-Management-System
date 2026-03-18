@@ -10,18 +10,11 @@ export async function handleEmailSignIn(formData: FormData) {
   const password = formData.get("password") as string;
 
   try {
-    const result = await signIn("credentials", {
+    await signIn("credentials", {
       email,
       password,
-      redirect: false,
-      callbackUrl: "/dashboard",
+      redirectTo: "/dashboard",
     });
-    if (result?.error) {
-      redirect("/login?error=signin_failed");
-    }
-    if (result?.url) {
-      redirect(result.url);
-    }
   } catch (error) {
     if (isRedirectError(error)) {
       throw error;
