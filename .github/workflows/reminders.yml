@@ -1,5 +1,8 @@
 name: Daily Invoice Reminders
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   schedule:
     - cron: '0 4 * * *' # Run at 4:00 AM UTC (9:30 AM IST) daily
@@ -14,23 +17,45 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Trigger Reminders via API
         env:
-          SITE_URL: ${{ secrets.SITE_URL }}
+          SITE_URL: ${{ secrets.SITE_URL || 'invonotify.vercel.aoo' }}
           REMINDER_CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          echo "Triggering reminders at ${SITE_URL}/api/reminders/auto ..."
-          HTTP_STATUS=$(curl -s -o /tmp/reminder_response.json -w "%{http_code}" \
-            --max-time 60 \
-            -X POST "${SITE_URL}/api/reminders/auto" \
-            -H "Authorization: Bearer ${REMINDER_CRON_SECRET}" \
-            -H "x-cron-secret: ${REMINDER_CRON_SECRET}" \
-            -H "Content-Type: application/json")
+          NORMALIZED_SITE_URL="${SITE_URL%/}"
+          if [[ ! "${NORMALIZED_SITE_URL}" =~ ^https?:// ]]; then
+            NORMALIZED_SITE_URL="https://${NORMALIZED_SITE_URL}"
+          fi
+
+          API_URL="${NORMALIZED_SITE_URL}/api/reminders/auto"
+          echo "Triggering reminders at ${API_URL} ..."
+
+          CURL_ARGS=(
+            -s
+            -o /tmp/reminder_response.json
+            -w "%{http_code}"
+            --max-time 60
+            -X POST "${API_URL}"
+            -H "Content-Type: application/json"
+          )
+
+          if [ -n "${REMINDER_CRON_SECRET}" ]; then
+            CURL_ARGS+=(
+              -H "Authorization: Bearer ${REMINDER_CRON_SECRET}"
+              -H "x-cron-secret: ${REMINDER_CRON_SECRET}"
+            )
+          fi
+
+          set +e
+          HTTP_STATUS=$(curl "${CURL_ARGS[@]}")
+          CURL_EXIT=$?
+          set -e
+
+          if [ "$CURL_EXIT" -ne 0 ]; then
+            echo "::error::curl failed with exit code ${CURL_EXIT}. Check SITE_URL formatting and API reachability."
+            exit 1
+          fi
+
           echo "HTTP Status: ${HTTP_STATUS}"
           echo "Response body:"
           cat /tmp/reminder_response.json || true
@@ -42,5 +67,8 @@ jobs:
 
       - name: Notify on failure
         if: failure()
+        env:
+          SITE_URL: ${{ secrets.SITE_URL || 'invonotify.vercel.aoo' }}
         run: |
-          echo "::error::Daily reminder job failed. Check the API logs at ${SITE_URL}/api/reminders/auto"
+          TARGET_URL="${SITE_URL%/}/api/reminders/auto"
+          echo "::error::Daily reminder job failed. Check the API logs at ${TARGET_URL}"
