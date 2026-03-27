@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +22,12 @@ export function PaymentDialog({ isOpen, onClose, invoice, onSuccess }: PaymentDi
     const [note, setNote] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
-    // Update amount when invoice changes
-    useState(() => {
+    // Keep amount in sync whenever a different invoice is selected.
+    useEffect(() => {
         if (invoice) {
             setAmount(invoice.balance?.toString() || invoice.total?.toString() || "");
         }
-    });
+    }, [invoice]);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();

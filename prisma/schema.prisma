@@ -128,6 +128,7 @@ model Invoice {
   @@index([autoReminderEnabled, dueDate, status])
   @@index([ownerUserId])
   @@index([userId])
+  @@unique([invoiceNumber, ownerUserId])
 }
 
 model InvoiceItem {

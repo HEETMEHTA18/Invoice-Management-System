@@ -1,7 +1,7 @@
 
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma, Prisma } from "@/lib/db";
 import { normalizeReminderChannel, normalizeReminderSettings } from "@/lib/reminders";
 import { auth } from "@/lib/auth";
 
@@ -19,6 +19,14 @@ function isReminderSchemaMismatch(error: unknown) {
     message.includes("Unknown arg") ||
     message.includes("Unknown field")
   );
+}
+
+function isInvoiceNumberUniqueViolation(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Invoice_invoiceNumber_ownerUserId_key") || message.includes("Unique constraint failed");
 }
 
 // GET: Get a single invoice with items
@@ -316,6 +324,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         });
       }
     } catch (error) {
+      if (isInvoiceNumberUniqueViolation(error)) {
+        return NextResponse.json(
+          { error: "Invoice number already exists for your account" },
+          { status: 409 }
+        );
+      }
       if (!isReminderSchemaMismatch(error)) throw error;
 
       const fallbackData = { ...updateData };
@@ -327,10 +341,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       delete fallbackData.ownerUserId;
       delete fallbackData.clientPhone;
 
-      const updated = await prisma.invoice.updateMany({
-        where: legacyWhere,
-        data: fallbackData,
-      });
+      let updated;
+      try {
+        updated = await prisma.invoice.updateMany({
+          where: legacyWhere,
+          data: fallbackData,
+        });
+      } catch (legacyError) {
+        if (isInvoiceNumberUniqueViolation(legacyError)) {
+          return NextResponse.json(
+            { error: "Invoice number already exists for your account" },
+            { status: 409 }
+          );
+        }
+        throw legacyError;
+      }
 
       if (updated.count === 0) {
         return NextResponse.json({ error: "Invoice not found or unauthorized" }, { status: 404 });

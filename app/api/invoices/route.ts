@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma, Prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { normalizeReminderSettings, normalizeReminderChannel } from "@/lib/reminders";
+
+function parsePositiveInt(value: string | null, fallback: number) {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function isInvoiceNumberUniqueViolation(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Invoice_invoiceNumber_ownerUserId_key") || message.includes("Unique constraint failed");
+}
 
 function isReminderSchemaMismatch(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -27,6 +41,10 @@ export async function GET(req: NextRequest) {
   }
   try {
     const withItems = req.nextUrl?.searchParams?.get("withItems") === "true";
+    const limit = Math.min(parsePositiveInt(req.nextUrl?.searchParams?.get("limit"), 50), 100);
+    const cursorParam = req.nextUrl?.searchParams?.get("cursor");
+    const cursor = cursorParam ? Number(cursorParam) : null;
+    const usePagination = req.nextUrl?.searchParams?.has("limit") || req.nextUrl?.searchParams?.has("cursor");
     const userId = session.user.id;
     const baseSelect = {
       id: true,
@@ -72,12 +90,24 @@ export async function GET(req: NextRequest) {
               },
             },
           },
-          orderBy: { date: "desc" },
+          orderBy: usePagination ? { id: "desc" } : { date: "desc" },
+          ...(usePagination
+            ? {
+              take: limit + 1,
+              ...(cursor && Number.isInteger(cursor) ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }
+            : {}),
         })
         : await prisma.invoice.findMany({
           where: { ownerUserId: userId },
           select: baseSelect,
-          orderBy: { date: "desc" },
+          orderBy: usePagination ? { id: "desc" } : { date: "desc" },
+          ...(usePagination
+            ? {
+              take: limit + 1,
+              ...(cursor && Number.isInteger(cursor) ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }
+            : {}),
         });
     } catch (error) {
       if (!isReminderSchemaMismatch(error)) throw error;
@@ -119,13 +149,32 @@ export async function GET(req: NextRequest) {
               },
             },
           },
-          orderBy: { date: "desc" },
+          orderBy: usePagination ? { id: "desc" } : { date: "desc" },
+          ...(usePagination
+            ? {
+              take: limit + 1,
+              ...(cursor && Number.isInteger(cursor) ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }
+            : {}),
         })
         : await prisma.invoice.findMany({
           where: { userId },
           select: legacySelect,
-          orderBy: { date: "desc" },
+          orderBy: usePagination ? { id: "desc" } : { date: "desc" },
+          ...(usePagination
+            ? {
+              take: limit + 1,
+              ...(cursor && Number.isInteger(cursor) ? { cursor: { id: cursor }, skip: 1 } : {}),
+            }
+            : {}),
         });
+    }
+
+    if (usePagination) {
+      const hasMore = invoices.length > limit;
+      const data = hasMore ? invoices.slice(0, limit) : invoices;
+      const nextCursor = hasMore ? data[data.length - 1]?.id : null;
+      return NextResponse.json({ data, hasMore, nextCursor });
     }
 
     return NextResponse.json(invoices);
@@ -268,15 +317,31 @@ export async function POST(req: NextRequest) {
         include: { items: true },
       });
     } catch (error) {
+      if (isInvoiceNumberUniqueViolation(error)) {
+        return NextResponse.json(
+          { error: "Invoice number already exists for your account" },
+          { status: 409 }
+        );
+      }
       if (!isReminderSchemaMismatch(error)) throw error;
 
-      invoice = await prisma.invoice.create({
-        data: {
-          ...commonCreateData,
-          userId: session.user.id,
-        },
-        include: { items: true },
-      });
+      try {
+        invoice = await prisma.invoice.create({
+          data: {
+            ...commonCreateData,
+            userId: session.user.id,
+          },
+          include: { items: true },
+        });
+      } catch (legacyError) {
+        if (isInvoiceNumberUniqueViolation(legacyError)) {
+          return NextResponse.json(
+            { error: "Invoice number already exists for your account" },
+            { status: 409 }
+          );
+        }
+        throw legacyError;
+      }
     }
 
     // Immediate reminder check

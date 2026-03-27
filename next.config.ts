@@ -15,6 +15,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/invoice/:path*",
+        destination: "/dashboard/invoices",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

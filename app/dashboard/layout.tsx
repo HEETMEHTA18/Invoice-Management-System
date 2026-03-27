@@ -38,7 +38,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white font-bold">
                                 <FileText className="h-4 w-4 text-white" />
                             </div>
-                            <span className="text-lg font-bold text-gray-900">IMS</span>
+                            <span className="text-lg font-bold text-gray-900">Invonotify</span>
                         </Link>
                     </div>
 

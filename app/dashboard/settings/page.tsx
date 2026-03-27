@@ -18,6 +18,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function SettingsPage() {
     const [logo, setLogo] = useState<string | null>(null);
     const [signature, setSignature] = useState<string | null>(null);
+    const [companyName, setCompanyName] = useState("");
+    const [companyEmail, setCompanyEmail] = useState("");
+    const [companyPhone, setCompanyPhone] = useState("");
+    const [companyAddress, setCompanyAddress] = useState("");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -43,6 +47,10 @@ export default function SettingsPage() {
                 const data = await res.json();
                 setLogo(data.logo || null);
                 setSignature(data.signature || null);
+                setCompanyName(data.name || "");
+                setCompanyEmail(data.email || "");
+                setCompanyPhone(data.phone || "");
+                setCompanyAddress(data.address || "");
             }
         } catch {
             // Settings not found
@@ -193,7 +201,14 @@ export default function SettingsPage() {
             const res = await fetch("/api/settings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ logo, signature }),
+                body: JSON.stringify({
+                    logo,
+                    signature,
+                    name: companyName,
+                    email: companyEmail,
+                    phone: companyPhone,
+                    address: companyAddress,
+                }),
             });
 
             if (!res.ok) {
@@ -292,6 +307,61 @@ export default function SettingsPage() {
                     Uploading image to cloud...
                 </div>
             )}
+
+            {/* Company Info Section */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+                <div className="p-6 border-b border-gray-100 flex items-center gap-3">
+                    <Building2 className="h-5 w-5 text-gray-500" />
+                    <div>
+                        <h2 className="text-base font-semibold text-gray-900">Company Information</h2>
+                        <p className="text-xs text-gray-500">
+                            These details are used as default sender information in invoices.
+                        </p>
+                    </div>
+                </div>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">Company Name</label>
+                        <input
+                            type="text"
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            placeholder="Your company name"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">Company Email</label>
+                        <input
+                            type="email"
+                            value={companyEmail}
+                            onChange={(e) => setCompanyEmail(e.target.value)}
+                            placeholder="company@example.com"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">Company Phone</label>
+                        <input
+                            type="tel"
+                            value={companyPhone}
+                            onChange={(e) => setCompanyPhone(e.target.value)}
+                            placeholder="+91XXXXXXXXXX"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-xs text-gray-500 mb-1">Company Address</label>
+                        <input
+                            type="text"
+                            value={companyAddress}
+                            onChange={(e) => setCompanyAddress(e.target.value)}
+                            placeholder="Street, City, State, ZIP"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        />
+                    </div>
+                </div>
+            </div>
 
             {/* Logo Section */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">

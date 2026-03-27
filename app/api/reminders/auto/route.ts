@@ -15,14 +15,12 @@ function isCronAuthorized(req: NextRequest) {
     : null;
   const headerSecret = req.headers.get("x-cron-secret");
 
-  if (configuredSecret) {
-    return bearer === configuredSecret || headerSecret === configuredSecret;
+  // Security hardening: never trust spoofable headers if no shared secret exists.
+  if (!configuredSecret) {
+    return false;
   }
 
-  // Fallback for Vercel Cron when no secret is configured.
-  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
-  const userAgent = (req.headers.get("user-agent") || "").toLowerCase();
-  return isVercelCron || userAgent.includes("vercel-cron");
+  return bearer === configuredSecret || headerSecret === configuredSecret;
 }
 
 /** Returns true if a customer qualifies as a long-term regular (≥ 2 years). */

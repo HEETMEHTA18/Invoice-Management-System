@@ -47,6 +47,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, message: "SMS sent successfully" });
     } catch (error) {
         console.error("SMS send error:", error);
+
+        const code = typeof error === "object" && error && "code" in error
+            ? String((error as { code?: string }).code)
+            : "";
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (code === "SMS_NOT_CONFIGURED" || code === "SMS_PROVIDER_DISABLED" || message.toLowerCase().includes("sms provider")) {
+            return NextResponse.json(
+                { error: "SMS service is not configured" },
+                { status: 503 }
+            );
+        }
+
         return NextResponse.json(
             { error: "Failed to send SMS" },
             { status: 500 }

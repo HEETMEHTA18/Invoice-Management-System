@@ -53,9 +53,13 @@ type Invoice = {
 };
 
 export default function InvoicesPage() {
+  const PAGE_SIZE = 50;
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -66,26 +70,50 @@ export default function InvoicesPage() {
   const customerFileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  const fetchInvoices = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
+  const fetchInvoices = useCallback(async ({ reset = true }: { reset?: boolean } = {}) => {
+    if (reset) {
+      setIsLoading(true);
+      setError("");
+    } else {
+      setIsLoadingMore(true);
+    }
+
     try {
-      console.log("Fetching invoices...");
-      const res = await fetch("/api/invoices?withItems=false");
+      const cursorToUse = reset ? null : nextCursor;
+      const query = new URLSearchParams({
+        withItems: "false",
+        limit: String(PAGE_SIZE),
+      });
+
+      if (cursorToUse) {
+        query.set("cursor", String(cursorToUse));
+      }
+
+      const res = await fetch(`/api/invoices?${query.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      console.log("Invoices received:", data.length);
-      setInvoices(data);
-      setFilteredInvoices(data);
+
+      const payload = await res.json();
+      const pageData: Invoice[] = Array.isArray(payload) ? payload : payload.data || [];
+      const next = Array.isArray(payload) ? null : payload.nextCursor;
+      const more = Array.isArray(payload) ? false : Boolean(payload.hasMore);
+
+      setInvoices((prev) => {
+        const merged = reset ? pageData : [...prev, ...pageData];
+        const deduped = Array.from(new Map(merged.map((inv) => [inv.id, inv])).values());
+        return deduped;
+      });
+      setNextCursor(typeof next === "number" ? next : null);
+      setHasMore(more);
     } catch {
       setError("Failed to load invoices. Please try again.");
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  }, []);
+  }, [nextCursor]);
 
   useEffect(() => {
-    fetchInvoices();
+    fetchInvoices({ reset: true });
   }, [fetchInvoices]);
 
   async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>, type: 'invoice' | 'customer') {
@@ -109,7 +137,7 @@ export default function InvoicesPage() {
             ? `Import successful: ${result.createdCount} records created.`
             : `Imported ${result.createdCount} new invoices. ${result.skippedCount || 0} duplicates were skipped.`;
           toast.success(msg);
-          if (type === 'invoice') fetchInvoices();
+          if (type === 'invoice') fetchInvoices({ reset: true });
         } else {
           toast.error(`Import failed: ${result.error || "Unknown error"}`);
         }
@@ -141,7 +169,7 @@ export default function InvoicesPage() {
         const result = await res.json();
         if (res.ok) {
           toast.success(`Tally import successful: ${result.createdCount} invoices created. ${result.skippedCount || 0} duplicates skipped.`);
-          fetchInvoices();
+          fetchInvoices({ reset: true });
         } else {
           toast.error(`Tally import failed: ${result.error || "Unknown error"}`);
         }
@@ -200,7 +228,7 @@ export default function InvoicesPage() {
     if (!confirm(`Delete invoice ${inv.invoiceNumber || `#${inv.id}`}?`)) return;
     try {
       await fetch(`/api/invoices/${inv.id}`, { method: "DELETE" });
-      fetchInvoices();
+      fetchInvoices({ reset: true });
     } catch {
       setError("Failed to delete invoice");
     }
@@ -220,7 +248,7 @@ export default function InvoicesPage() {
         return;
       }
 
-      fetchInvoices();
+      fetchInvoices({ reset: true });
     } catch {
       setError("Failed to update invoice");
     }
@@ -513,7 +541,7 @@ export default function InvoicesPage() {
           </div>
           {/* Refresh */}
           <button
-            onClick={fetchInvoices}
+            onClick={() => fetchInvoices({ reset: true })}
             disabled={isLoading}
             className="p-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all disabled:opacity-50"
             title="Refresh"
@@ -580,13 +608,33 @@ export default function InvoicesPage() {
             />
           </div>
         )}
+
+        {hasMore && (
+          <div className="px-4 pb-4 flex justify-center">
+            <Button
+              variant="outline"
+              onClick={() => fetchInvoices({ reset: false })}
+              disabled={isLoadingMore}
+              className="min-w-40"
+            >
+              {isLoadingMore ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                "Load More"
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       <PaymentDialog
         isOpen={isPaymentDialogOpen}
         onClose={() => setIsPaymentDialogOpen(false)}
         invoice={selectedInvoiceForPayment}
-        onSuccess={fetchInvoices}
+        onSuccess={() => fetchInvoices({ reset: true })}
       />
       <p className="hidden">Debug: {isLoading ? "Loading" : "Loaded"}, {invoices.length} invoices</p>
     </div>

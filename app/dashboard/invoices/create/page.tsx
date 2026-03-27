@@ -13,23 +13,11 @@ import {
   FileText,
   Loader2,
   CheckCircle2,
-  Upload,
-  Camera,
-  FileSpreadsheet,
   X,
-  Sparkles,
-  AlertCircle,
   MessageSquare,
-  ChevronDown,
   Save,
   Database,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { REMINDER_CHANNEL_OPTIONS, REMINDER_OFFSET_OPTIONS, type ReminderChannel } from "@/lib/reminders";
@@ -49,8 +37,6 @@ type CompanySettings = {
   signature: string | null;
 };
 
-type ImportMethod = "manual" | "tally" | "photo" | null;
-
 import { Suspense } from "react";
 
 function CreateInvoiceContent() {
@@ -64,54 +50,6 @@ function CreateInvoiceContent() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [settings, setSettings] = useState<CompanySettings>({ logo: null, signature: null });
-
-  // Import state
-  const [importMethod, setImportMethod] = useState<ImportMethod>(null);
-  const [importing, setImporting] = useState(false);
-  const [importError, setImportError] = useState("");
-  const [importSuccess, setImportSuccess] = useState("");
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const [ocrRawText, setOcrRawText] = useState("");
-  const [showRawText, setShowRawText] = useState(false);
-  const tallyFileRef = useRef<HTMLInputElement>(null);
-  const photoFileRef = useRef<HTMLInputElement>(null);
-  const dataFileInputRef = useRef<HTMLInputElement>(null);
-  const customerFileInputRef = useRef<HTMLInputElement>(null);
-
-  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>, type: 'invoice' | 'customer') {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const endpoint = type === 'customer' ? "/api/customers/bulk-import" : "/api/invoices/bulk-import";
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const content = event.target?.result as string;
-      setLoading(true);
-      try {
-        const res = await fetch(endpoint, {
-          method: "POST",
-          body: content,
-        });
-        const result = await res.json();
-        if (res.ok) {
-          toast.success(`Import successful: ${result.createdCount} records created.`);
-          router.push("/dashboard/invoices");
-        } else {
-          toast.error(`Import failed: ${result.error || "Unknown error"}`);
-        }
-      } catch (err) {
-        toast.error("Import failed. See console for details.");
-        console.error(err);
-      } finally {
-        setLoading(false);
-        if (dataFileInputRef.current) dataFileInputRef.current.value = "";
-        if (customerFileInputRef.current) customerFileInputRef.current.value = "";
-      }
-    };
-    reader.readAsText(file);
-  }
 
   // Form state
 
@@ -310,9 +248,6 @@ function CreateInvoiceContent() {
         }))
       );
     }
-    if (data.rawText) {
-      setOcrRawText(data.rawText);
-    }
   }
 
   useEffect(() => {
@@ -373,94 +308,6 @@ function CreateInvoiceContent() {
       setError("Error loading invoice");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleTallyImport(file: File) {
-    setImporting(true);
-    setImportError("");
-    setImportSuccess("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/tally-import", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        setImportError(err.error || "Failed to parse Tally file");
-        return;
-      }
-
-      const data = await res.json();
-      populateFormFromData(data);
-      setImportSuccess("Tally data imported successfully! Review and adjust the fields below.");
-      setShowImportModal(false);
-    } catch {
-      setImportError("Failed to import Tally file. Please check the file format.");
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  async function handlePhotoImport(file: File) {
-    setImporting(true);
-    setImportError("");
-    setImportSuccess("");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/ocr", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        setImportError(err.error || "Failed to extract data from photo");
-        return;
-      }
-
-      const data = await res.json();
-      populateFormFromData(data);
-      setImportSuccess(
-        "Invoice data extracted from photo! Review and adjust the fields below."
-      );
-      setShowImportModal(false);
-    } catch {
-      setImportError("Failed to process photo. Please try again.");
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>, type: "tally" | "photo") {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (type === "tally") {
-      handleTallyImport(file);
-    } else {
-      handlePhotoImport(file);
-    }
-  }
-
-  function handleDrop(e: React.DragEvent, type: "tally" | "photo") {
-    e.preventDefault();
-    setDragActive(false);
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-
-    if (type === "tally") {
-      handleTallyImport(file);
-    } else {
-      handlePhotoImport(file);
     }
   }
 
@@ -935,8 +782,8 @@ function CreateInvoiceContent() {
   if (loading && isEditing) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm px-4 sm:px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-4">
               <Skeleton className="h-8 w-16" />
               <div className="h-6 w-px bg-gray-200" />
@@ -948,7 +795,7 @@ function CreateInvoiceContent() {
             </div>
           </div>
         </div>
-        <div className="max-w-5xl mx-auto p-6">
+        <div className="max-w-6xl mx-auto p-4 sm:p-6">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 p-6">
             <div className="flex items-center gap-3 mb-6">
               <Skeleton className="h-10 w-10 rounded-lg" />
@@ -990,26 +837,9 @@ function CreateInvoiceContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hidden file inputs */}
-      <input
-        ref={tallyFileRef}
-        type="file"
-        accept=".xml,.yml,.yaml"
-        className="hidden"
-        onChange={(e) => handleFileInput(e, "tally")}
-      />
-      <input
-        ref={photoFileRef}
-        type="file"
-        accept="image/png,image/jpeg,image/jpg,image/webp,application/pdf"
-        className="hidden"
-        onChange={(e) => handleFileInput(e, "photo")}
-      />
-
       {/* Header */}
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm px-4 sm:px-6 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 
             {/* Left: Back & Title */}
@@ -1036,44 +866,23 @@ function CreateInvoiceContent() {
                 variant="outline"
                 size="sm"
                 onClick={handlePreview}
-                className="text-gray-600"
+                className="text-gray-600 gap-2"
                 title="Preview PDF"
               >
-                <Eye className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Preview</span>
+                <Eye className="h-4 w-4" />
+                <span>Preview</span>
               </Button>
-
-              {/* Import Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 text-gray-600">
-                    <Upload className="h-4 w-4" />
-                    <span className="hidden sm:inline">Import</span>
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => customerFileInputRef.current?.click()}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import Customers
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => dataFileInputRef.current?.click()}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import Invoices
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
 
               {/* Download */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
-                className="text-gray-600"
+                className="text-gray-600 gap-2"
                 title="Download PDF"
               >
-                <Download className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Download</span>
+                <Download className="h-4 w-4" />
+                <span>Download</span>
               </Button>
 
               {/* Send Actions (only if created) */}
@@ -1105,7 +914,7 @@ function CreateInvoiceContent() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6">
         {/* Status Messages */}
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2">
@@ -1118,159 +927,27 @@ function CreateInvoiceContent() {
             Invoice created successfully! You can now preview, download, or send it to the client.
           </div>
         )}
-        {importSuccess && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            {importSuccess}
-            {ocrRawText && (
-              <button
-                onClick={() => setShowRawText(!showRawText)}
-                className="ml-auto text-xs underline hover:no-underline"
-              >
-                {showRawText ? "Hide" : "Show"} extracted text
-              </button>
-            )}
-          </div>
-        )}
-        {showRawText && ocrRawText && (
-          <div className="mb-4 p-4 bg-gray-900 text-gray-100 rounded-lg text-xs font-mono whitespace-pre-wrap max-h-60 overflow-y-auto border border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400 text-xs uppercase tracking-wide font-semibold">
-                Raw OCR Output
-              </span>
-              <button
-                onClick={() => setShowRawText(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-            {ocrRawText}
-          </div>
-        )}
 
-        {/* ===== IMPORT METHOD SELECTOR CARD ===== */}
+        {/* ===== ENTRY MODE CARD ===== */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
           <div className="p-6 border-b border-gray-100">
             <div className="flex items-center gap-3 mb-1">
-              <div className="h-8 w-8 rounded-lg bg-linear-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-white" />
+              <div className="h-8 w-8 rounded-lg bg-linear-to-br from-blue-600 to-cyan-600 flex items-center justify-center">
+                <FileText className="h-4 w-4 text-white" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-gray-900">Import Invoice Data</h2>
+                <h2 className="text-sm font-bold text-gray-900">Manual Invoice Entry</h2>
                 <p className="text-xs text-gray-500">
-                  Auto-fill invoice fields from a Tally export or a photo
+                  Enter invoice details directly below for a simpler and faster workflow.
                 </p>
               </div>
             </div>
           </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Manual Entry */}
-              <button
-                type="button"
-                onClick={() => {
-                  setImportMethod("manual");
-                  setImportSuccess("");
-                  setOcrRawText("");
-                }}
-                className={`group relative p-5 rounded-xl border-2 transition-all duration-200 text-left ${importMethod === "manual" || importMethod === null
-                  ? "border-gray-900 bg-gray-50 shadow-sm"
-                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
-              >
-                <div
-                  className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 transition-colors ${importMethod === "manual" || importMethod === null
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-500 group-hover:bg-gray-200"
-                    }`}
-                >
-                  <FileText className="h-5 w-5" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Manual Entry</h3>
-                <p className="text-xs text-gray-500">
-                  Fill in the invoice details manually below
-                </p>
-                {(importMethod === "manual" || importMethod === null) && (
-                  <div className="absolute top-3 right-3">
-                    <div className="h-5 w-5 rounded-full bg-gray-900 flex items-center justify-center">
-                      <CheckCircle2 className="h-3 w-3 text-white" />
-                    </div>
-                  </div>
-                )}
-              </button>
-
-              {/* Import from Tally */}
-              <button
-                type="button"
-                onClick={() => {
-                  setImportMethod("tally");
-                  dataFileInputRef.current?.click();
-                }}
-                className={`group relative p-5 rounded-xl border-2 transition-all duration-200 text-left ${importMethod === "tally"
-                  ? "border-emerald-500 bg-emerald-50 shadow-sm"
-                  : "border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/30"
-                  }`}
-              >
-                <div
-                  className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 transition-colors ${importMethod === "tally"
-                    ? "bg-emerald-500 text-white"
-                    : "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100"
-                    }`}
-                >
-                  <FileSpreadsheet className="h-5 w-5" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Import from Tally</h3>
-                <p className="text-xs text-gray-500">
-                  Upload XML/YML export from Tally software
-                </p>
-                {importMethod === "tally" && (
-                  <div className="absolute top-3 right-3">
-                    <div className="h-5 w-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                      <CheckCircle2 className="h-3 w-3 text-white" />
-                    </div>
-                  </div>
-                )}
-              </button>
-
-              {/* Upload Photo (OCR) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setImportMethod("photo");
-                  setShowImportModal(true);
-                  setImportError("");
-                }}
-                className={`group relative p-5 rounded-xl border-2 transition-all duration-200 text-left ${importMethod === "photo"
-                  ? "border-blue-500 bg-blue-50 shadow-sm"
-                  : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/30"
-                  }`}
-              >
-                <div
-                  className={`h-10 w-10 rounded-lg flex items-center justify-center mb-3 transition-colors ${importMethod === "photo"
-                    ? "bg-blue-500 text-white"
-                    : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"
-                    }`}
-                >
-                  <Camera className="h-5 w-5" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Upload Photo</h3>
-                <p className="text-xs text-gray-500">
-                  Extract data from invoice photo using AI OCR
-                </p>
-                <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-[10px] font-semibold">
-                  <Sparkles className="h-2.5 w-2.5" />
-                  AI Powered
-                </div>
-                {importMethod === "photo" && (
-                  <div className="absolute top-3 right-3">
-                    <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
-                      <CheckCircle2 className="h-3 w-3 text-white" />
-                    </div>
-                  </div>
-                )}
-              </button>
-            </div>
+          <div className="p-6 bg-blue-50/50">
+            <p className="text-sm text-blue-900 font-medium">This page now supports manual invoice entry only.</p>
+            <p className="text-xs text-blue-700 mt-1">
+              Tally import and photo upload have been removed for the further updates. If you have existing invoices created via Tally import or photo upload, you can still view and edit them, but new invoices must be created using the manual entry form.
+            </p>
           </div>
         </div>
 
@@ -1895,179 +1572,6 @@ function CreateInvoiceContent() {
         </div>
       )}
 
-      {/* ===== IMPORT MODAL ===== */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
-            style={{ animation: "fadeInUp 0.3s ease-out" }}
-          >
-            {/* Modal Header */}
-            <div
-              className={`px-6 py-5 border-b border-gray-100 ${importMethod === "tally"
-                ? "bg-linear-to-r from-emerald-50 to-teal-50"
-                : "bg-linear-to-r from-blue-50 to-indigo-50"
-                }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`h-10 w-10 rounded-xl flex items-center justify-center ${importMethod === "tally"
-                      ? "bg-emerald-500 text-white"
-                      : "bg-blue-500 text-white"
-                      }`}
-                  >
-                    {importMethod === "tally" ? (
-                      <FileSpreadsheet className="h-5 w-5" />
-                    ) : (
-                      <Camera className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900">
-                      {importMethod === "tally" ? "Import from Tally" : "Upload Invoice Photo"}
-                    </h2>
-                    <p className="text-xs text-gray-500">
-                      {importMethod === "tally"
-                        ? "Upload your Tally XML or YML export file"
-                        : "Upload a photo of an invoice to extract data using AI"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowImportModal(false);
-                    setImportError("");
-                  }}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white/50 rounded-lg transition-all"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6">
-              {importError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {importError}
-                </div>
-              )}
-
-              {importing ? (
-                <div className="py-12 flex flex-col items-center gap-4">
-                  <div
-                    className={`h-16 w-16 rounded-2xl flex items-center justify-center ${importMethod === "tally" ? "bg-emerald-100" : "bg-blue-100"
-                      }`}
-                  >
-                    <Loader2
-                      className={`h-8 w-8 animate-spin ${importMethod === "tally" ? "text-emerald-600" : "text-blue-600"
-                        }`}
-                    />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {importMethod === "tally"
-                        ? "Parsing Tally data..."
-                        : "Extracting data from photo..."}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {importMethod === "tally"
-                        ? "Reading invoice fields from your XML file"
-                        : "Using AI OCR to recognize text"}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all ${dragActive
-                    ? importMethod === "tally"
-                      ? "border-emerald-400 bg-emerald-50"
-                      : "border-blue-400 bg-blue-50"
-                    : "border-gray-300 hover:border-gray-400 bg-gray-50/50"
-                    }`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragActive(true);
-                  }}
-                  onDragLeave={() => setDragActive(false)}
-                  onDrop={(e) => handleDrop(e, importMethod === "tally" ? "tally" : "photo")}
-                >
-                  <div className="flex flex-col items-center gap-3">
-                    <div
-                      className={`h-14 w-14 rounded-2xl flex items-center justify-center ${importMethod === "tally"
-                        ? "bg-emerald-100 text-emerald-600"
-                        : "bg-blue-100 text-blue-600"
-                        }`}
-                    >
-                      <Upload className="h-7 w-7" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-700">
-                        Drag & drop your file here
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">or click to browse files</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (importMethod === "tally") {
-                          tallyFileRef.current?.click();
-                        } else {
-                          photoFileRef.current?.click();
-                        }
-                      }}
-                      className={`mt-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all shadow-sm hover:shadow ${importMethod === "tally"
-                        ? "bg-emerald-500 hover:bg-emerald-600"
-                        : "bg-blue-500 hover:bg-blue-600"
-                        }`}
-                    >
-                      {importMethod === "tally" ? "Choose XML/YML File" : "Choose Photo"}
-                    </button>
-                    <p className="text-[11px] text-gray-400 mt-2">
-                      {importMethod === "tally"
-                        ? "Supported: .xml, .yml, .yaml"
-                        : "Supported: PNG, JPG, JPEG, WebP, PDF"}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            {!importing && (
-              <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setShowImportModal(false);
-                    setImportError("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Animation keyframes */}
-      <style jsx>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(16px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }
@@ -2076,8 +1580,8 @@ export default function CreateInvoicePage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm px-4 sm:px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-4">
               <Skeleton className="h-8 w-16" />
               <div className="h-6 w-px bg-gray-200" />
@@ -2089,7 +1593,7 @@ export default function CreateInvoicePage() {
             </div>
           </div>
         </div>
-        <div className="max-w-5xl mx-auto p-6">
+        <div className="max-w-6xl mx-auto p-4 sm:p-6">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 p-6">
             <Skeleton className="h-10 w-full mb-6" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2098,7 +1602,7 @@ export default function CreateInvoicePage() {
               <Skeleton className="h-24 w-full rounded-xl" />
             </div>
           </div>
-          <Skeleton className="h-[400px] w-full rounded-xl" />
+          <Skeleton className="h-100 w-full rounded-xl" />
         </div>
       </div>
     }>

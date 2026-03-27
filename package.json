@@ -7,6 +7,9 @@
     "build": "npx prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
     "check-db": "npx tsx scripts/check-db.ts",
     "postinstall": "prisma generate"
   },
@@ -40,6 +43,7 @@
     "yaml": "^2.8.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^3.0.0",
     "@types/js-yaml": "^4.0.9",
