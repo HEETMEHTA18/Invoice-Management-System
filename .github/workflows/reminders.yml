@@ -15,16 +15,21 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Trigger Reminders via API
         env:
-          SITE_URL: ${{ secrets.SITE_URL || 'invonotify.vercel.app' }}
-          REMINDER_CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.SITE_URL || vars.SITE_URL || 'invonotify.vercel.app' }}
+          REMINDER_CRON_SECRET: ${{ secrets.REMINDER_CRON_SECRET || secrets.CRON_SECRET }}
         run: |
           NORMALIZED_SITE_URL="${SITE_URL%/}"
           if [[ ! "${NORMALIZED_SITE_URL}" =~ ^https?:// ]]; then
             NORMALIZED_SITE_URL="https://${NORMALIZED_SITE_URL}"
+          fi
+
+          if [ -z "${REMINDER_CRON_SECRET}" ]; then
+            echo "::error::Missing reminder secret. Configure secrets.REMINDER_CRON_SECRET (or secrets.CRON_SECRET) in GitHub Actions and set the same value in Vercel env (CRON_SECRET or REMINDER_CRON_SECRET)."
+            exit 1
           fi
 
           API_URL="${NORMALIZED_SITE_URL}/api/reminders/auto"
@@ -39,12 +44,10 @@ jobs:
             -H "Content-Type: application/json"
           )
 
-          if [ -n "${REMINDER_CRON_SECRET}" ]; then
-            CURL_ARGS+=(
-              -H "Authorization: Bearer ${REMINDER_CRON_SECRET}"
-              -H "x-cron-secret: ${REMINDER_CRON_SECRET}"
-            )
-          fi
+          CURL_ARGS+=(
+            -H "Authorization: Bearer ${REMINDER_CRON_SECRET}"
+            -H "x-cron-secret: ${REMINDER_CRON_SECRET}"
+          )
 
           set +e
           HTTP_STATUS=$(curl "${CURL_ARGS[@]}")
@@ -68,7 +71,7 @@ jobs:
       - name: Notify on failure
         if: failure()
         env:
-          SITE_URL: ${{ secrets.SITE_URL || 'invonotify.vercel.app' }}
+          SITE_URL: ${{ secrets.SITE_URL || vars.SITE_URL || 'invonotify.vercel.app' }}
         run: |
           TARGET_URL="${SITE_URL%/}/api/reminders/auto"
           echo "::error::Daily reminder job failed. Check the API logs at ${TARGET_URL}"
