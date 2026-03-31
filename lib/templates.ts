@@ -33,15 +33,21 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
     paymentQrAmount,
   } = data;
 
-  const message = isOverdue
-    ? `We are writing to remind you that your payment for invoice <strong>#${invoiceNumber}</strong> is currently overdue. We understand how things can get lost in the shuffle, so we'd appreciate it if you could settle the balance at your earliest convenience.`
-    : `We hope you are having a great day. This is a friendly reminder regarding your upcoming payment for invoice <strong>#${invoiceNumber}</strong>. Please find the specific details below and the attached PDF for your records.`;
+  const isAlert = Boolean(isOverdue);
+  const message = isAlert
+    ? `This is an urgent reminder that invoice <strong>#${invoiceNumber}</strong> is overdue. Please clear the pending balance as soon as possible to avoid service or account interruptions.`
+    : `This is a friendly reminder for invoice <strong>#${invoiceNumber}</strong>. The payment is due soon. Please review the details below and complete payment on time.`;
 
-  const badgeColor = isOverdue ? "#ef4444" : "#f59e0b";
-  const badgeBg = isOverdue ? "#fee2e2" : "#fef3c7";
-  const headerGradient = isOverdue
-    ? "linear-gradient(135deg, #7f1d1d 0%, #0f172a 100%)"
-    : "linear-gradient(135deg, #0f172a 0%, #334155 100%)";
+  const badgeColor = isAlert ? "#b91c1c" : "#047857";
+  const badgeBg = isAlert ? "#fee2e2" : "#d1fae5";
+  const headerGradient = isAlert
+    ? "linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)"
+    : "linear-gradient(135deg, #065f46 0%, #10b981 100%)";
+  const statusLabel = isAlert ? "Overdue" : "Due Soon";
+  const reminderLabel = reminderBadge || (isAlert ? "OVERDUE" : "REMINDER");
+  const statusHeading = isAlert ? "Overdue Payment Alert" : "Payment Reminder";
+  const statusSubheading = isAlert ? "Immediate action recommended" : "On-track payment reminder";
+  const mailTitle = reminderTitle || (isAlert ? "Overdue Invoice Alert" : "Invoice Payment Reminder");
 
   return `
 <!DOCTYPE html>
@@ -49,7 +55,7 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${reminderTitle || "Payment Reminder"}</title>
+  <title>${mailTitle}</title>
   <style>
     body {
       font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -68,6 +74,70 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
       overflow: hidden;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
+    .brand-bar {
+      background: ${headerGradient};
+      color: #ffffff;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      object-fit: cover;
+      display: block;
+      background: rgba(255,255,255,0.25);
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+    .brand-fallback {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.35);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 28px;
+      text-align: center;
+    }
+    .brand-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 210px;
+    }
+    .brand-subtitle {
+      margin: 0;
+      font-size: 11px;
+      color: rgba(255,255,255,0.8);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: ${badgeBg};
+      color: ${badgeColor};
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
     .section {
       padding: 24px;
       border-bottom: 8px solid #f3f4f6;
@@ -82,7 +152,7 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
     .status-icon {
       width: 48px;
       height: 48px;
-      background-color: ${isOverdue ? "#fee2e2" : "#ecfdf5"};
+      background-color: ${isAlert ? "#fee2e2" : "#d1fae5"};
       border-radius: 50%;
       display: inline-flex;
       align-items: center;
@@ -92,14 +162,14 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
     .status-icon-inner {
       width: 24px;
       height: 24px;
-      background-color: ${isOverdue ? "#ef4444" : "#10b981"};
+      background-color: ${isAlert ? "#dc2626" : "#10b981"};
       border-radius: 50%;
       display: inline-block;
       position: relative;
     }
     /* Simple CSS checkmark/exclamation */
     .status-icon-inner::after {
-      content: '${isOverdue ? "!" : "✓"}';
+      content: '${isAlert ? "!" : "✓"}';
       color: white;
       font-weight: bold;
       font-size: 16px;
@@ -113,9 +183,21 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
     }
     .status-text {
       font-size: 16px;
-      color: #6b7280;
+      color: ${isAlert ? "#b91c1c" : "#047857"};
       margin-top: 4px;
+      font-weight: 700;
+    }
+    .status-subtext {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #6b7280;
       font-weight: 500;
+    }
+    .intro-text {
+      margin: 0;
+      color: #4b5563;
+      font-size: 14px;
+      line-height: 1.7;
     }
     .data-table {
       width: 100%;
@@ -165,13 +247,33 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
 </head>
 <body>
   <div class="email-container">
+    <!-- Brand Bar -->
+    <div class="brand-bar">
+      <div class="brand-wrap">
+        ${logoUrl
+      ? `<img src="${logoUrl}" alt="${senderName} logo" class="brand-logo" />`
+      : `<div class="brand-fallback">${isAlert ? "!" : "✓"}</div>`}
+        <div>
+          <p class="brand-title">${senderName}</p>
+          <p class="brand-subtitle">Invoice Notification</p>
+        </div>
+      </div>
+      <span class="badge">${reminderLabel}</span>
+    </div>
+
     <!-- Header / Status Section -->
     <div class="section top-section">
       <div class="status-icon">
         <div class="status-icon-inner"></div>
       </div>
       <h1 class="amount">${currency} ${amountDue}</h1>
-      <p class="status-text">${isOverdue ? "Invoice Overdue" : "Payment Due Soon"}</p>
+      <p class="status-text">${statusHeading}</p>
+      <p class="status-subtext">${statusSubheading}</p>
+    </div>
+
+    <!-- Message Section -->
+    <div class="section">
+      <p class="intro-text">${message}</p>
     </div>
 
     <!-- Invoice Details Section -->
@@ -183,7 +285,7 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
         </tr>
         <tr class="data-row">
           <td class="label">Status</td>
-          <td class="value" style="color: ${isOverdue ? "#ef4444" : "#f59e0b"}">${isOverdue ? "Overdue" : "Pending"}</td>
+          <td class="value" style="color: ${badgeColor}">${statusLabel}</td>
         </tr>
         <tr class="data-row">
           <td class="label">Due On</td>

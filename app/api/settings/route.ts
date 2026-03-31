@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, isPrismaDbConnectionError } from "@/lib/db";
+import { prisma, Prisma, isPrismaDbConnectionError } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { deleteFromCloudinary } from "@/lib/cloudinary";
 import { isValidPaymentPayload } from "@/lib/payment-qr";
@@ -162,8 +162,8 @@ export async function POST(req: NextRequest) {
 
             settings = await prisma.companySettings.upsert({
                 where: { userId: session.user.id },
-                update: updateData as any,
-                create: createData as any,
+                update: updateData as Prisma.CompanySettingsUpdateInput,
+                create: createData as Prisma.CompanySettingsCreateInput,
             });
         } catch (error) {
             if (!isCompanySettingsSchemaMismatch(error)) throw error;

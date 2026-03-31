@@ -1,4 +1,4 @@
-import { expect, request, test } from "@playwright/test";
+import { expect, request, test, type Page } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { prisma } from "../../lib/db";
 
@@ -11,7 +11,7 @@ function uniqueUser() {
   };
 }
 
-async function tryRegister(page: any, user: { name: string; email: string; password: string }) {
+async function tryRegister(page: Page, user: { name: string; email: string; password: string }) {
   await page.goto("/register");
   await page.getByLabel("Full Name").fill(user.name);
   await page.getByLabel("Email").fill(user.email);
@@ -36,7 +36,7 @@ async function ensureCredentialUser(user: { name: string; email: string; passwor
   });
 }
 
-async function loginWithCredentials(page: any, user: { email: string; password: string }) {
+async function loginWithCredentials(page: Page, user: { email: string; password: string }) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(user.email);
   await page.getByLabel("Password").fill(user.password);
@@ -44,7 +44,7 @@ async function loginWithCredentials(page: any, user: { email: string; password: 
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 45000 });
 }
 
-async function registerAndLogin(page: any) {
+async function registerAndLogin(page: Page) {
   const user = uniqueUser();
 
   await tryRegister(page, user);
@@ -54,7 +54,7 @@ async function registerAndLogin(page: any) {
   return user;
 }
 
-function inputAfterLabel(page: any, label: string) {
+function inputAfterLabel(page: Page, label: string) {
   return page.locator(
     `xpath=//label[normalize-space()='${label}']/following-sibling::*[self::input or self::select or self::textarea][1]`
   );
@@ -110,10 +110,10 @@ test.describe("Full system check", () => {
 
     const listResponse = await page.request.get("/api/invoices?withItems=true");
     expect(listResponse.ok()).toBeTruthy();
-    const invoices = (await listResponse.json()) as Array<any>;
+    const invoices = (await listResponse.json()) as Array<{ id: number; invoiceNumber: string; total: number | string }>;
     const created = invoices.find((inv) => inv.invoiceNumber === invoiceNumber);
     expect(created).toBeTruthy();
-    expect(Number(created.total)).toBeGreaterThan(0);
+    expect(Number(created?.total ?? 0)).toBeGreaterThan(0);
 
     const editResponse = await page.request.patch(`/api/invoices/${created.id}`, {
       data: { clientName: "ACME QA Client Updated", status: "Paid" },

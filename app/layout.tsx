@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "InvoiceFlow — Professional Invoice Management",
+  title: "Invonotify — Professional Invoice Management",
   description: "Create, send, and track professional invoices effortlessly. Free invoicing platform for modern businesses with PDF generation, email delivery, and real-time payment tracking.",
 };
 

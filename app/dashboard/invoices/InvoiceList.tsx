@@ -1,11 +1,38 @@
 import React from "react";
-import { InvoiceActions } from "./InvoiceActions";
+import { InvoiceActions, type InvoiceActionItem } from "./InvoiceActions";
 import { FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder, onSendSms, onVoiceCall, onDownload, onRecordPayment }: any) {
+type InvoiceListItem = InvoiceActionItem & {
+  invoiceNumber?: string | null;
+  clientName?: string | null;
+  customer?: string | null;
+  clientEmail?: string | null;
+  status?: string | null;
+  date?: string | Date | null;
+  dueDate?: string | Date | null;
+  currency?: string | null;
+  total?: number | string | null;
+  amount?: number | string | null;
+  balance?: number | string | null;
+  amountPaid?: number | string | null;
+  [key: string]: unknown; // Allow extra properties from Invoice type
+};
+
+type InvoiceListProps = {
+  invoices: InvoiceListItem[] | null;
+  onEdit?: (invoice: InvoiceListItem) => void;
+  onDelete?: (invoice: InvoiceListItem) => void;
+  onMarkPaid?: (invoice: InvoiceListItem) => void;
+  onReminder?: (invoice: InvoiceListItem) => void;
+  onVoiceCall?: (invoice: InvoiceListItem) => void;
+  onDownload?: (invoice: InvoiceListItem) => void;
+  onRecordPayment?: (invoice: InvoiceListItem) => void;
+};
+
+export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder, onVoiceCall, onDownload, onRecordPayment }: InvoiceListProps) {
   // Safe date helper
-  const formatDate = (dateString: any) => {
+  const formatDate = (dateString: string | Date | null | undefined) => {
     if (!dateString) return "—";
     try {
       const date = new Date(dateString);
@@ -16,9 +43,9 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
   };
 
   // Safe currency formatter
-  const formatCurrency = (amount: any, currency: string = "INR") => {
-    const symbol = currency === "INR" ? "₹" : (currency || "₹");
-    return `${symbol}${parseFloat(amount || "0").toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  const formatCurrency = (amount: number | string | null | undefined, currency: string | null | undefined = "INR") => {
+    const symbol = (currency === "INR" || !currency) ? "₹" : currency;
+    return `${symbol}${parseFloat(String(amount ?? "0")).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
   };
 
   if (!invoices) {
@@ -45,7 +72,7 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
     <div className="w-full">
       {/* Mobile View: Cards */}
       <div className="lg:hidden space-y-3 px-2 pb-4">
-        {invoices.map((inv: any) => (
+        {invoices.map((inv) => (
           <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-3.5 shadow-sm relative group transition-all hover:border-gray-300">
             <div className="flex justify-between items-start mb-3">
               <div>
@@ -74,7 +101,6 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
                   onDelete={() => onDelete && onDelete(inv)}
                   onMarkPaid={() => onMarkPaid && onMarkPaid(inv)}
                   onReminder={() => onReminder && onReminder(inv)}
-                  onSendSms={() => onSendSms && onSendSms(inv)}
                   onVoiceCall={() => onVoiceCall && onVoiceCall(inv)}
                   onDownload={() => onDownload && onDownload(inv)}
                   onRecordPayment={() => onRecordPayment && onRecordPayment(inv)}
@@ -121,7 +147,7 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
-            {invoices.map((inv: any) => (
+            {invoices.map((inv) => (
               <tr key={inv.id} className="hover:bg-gray-50/50 transition-colors group">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-bold text-gray-900">
@@ -145,10 +171,10 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
                   <div className={`text-sm font-bold tracking-tight ${parseFloat(inv.balance?.toString() || "0") > 0 ? "text-blue-600" : "text-gray-900"}`}>
                     {formatCurrency(inv.balance?.toString() || inv.total || "0", inv.currency)}
                   </div>
-                  {parseFloat(inv.amountPaid?.toString() || "0") > 0 && (
+                  {Number(inv.amountPaid ?? 0) > 0 && (
                     <div className="text-[10px] font-semibold text-green-600 uppercase tracking-wide mt-0.5 flex items-center gap-1">
                       <div className="h-1 w-1 bg-green-600 rounded-full" />
-                      Paid: {formatCurrency(inv.amountPaid.toString(), inv.currency)}
+                      Paid: {formatCurrency(String(inv.amountPaid), inv.currency)}
                     </div>
                   )}
                 </td>
@@ -182,7 +208,6 @@ export function InvoiceList({ invoices, onEdit, onDelete, onMarkPaid, onReminder
                     onDelete={() => onDelete && onDelete(inv)}
                     onMarkPaid={() => onMarkPaid && onMarkPaid(inv)}
                     onReminder={() => onReminder && onReminder(inv)}
-                    onSendSms={() => onSendSms && onSendSms(inv)}
                     onVoiceCall={() => onVoiceCall && onVoiceCall(inv)}
                     onDownload={() => onDownload && onDownload(inv)}
                     onRecordPayment={() => onRecordPayment && onRecordPayment(inv)}

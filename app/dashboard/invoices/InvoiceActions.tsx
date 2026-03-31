@@ -1,9 +1,25 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Download, Mail, Trash2, CheckCircle2, Banknote, MessageSquare } from "lucide-react";
+import { MoreHorizontal, Pencil, Download, Mail, Trash2, CheckCircle2, Banknote, PhoneCall } from "lucide-react";
 import React from "react";
 
-export function InvoiceActions({ invoice, onEdit, onDelete, onMarkPaid, onReminder, onSendSms, onVoiceCall, onDownload, onRecordPayment }: any) {
+export type InvoiceActionItem = {
+  id: number;
+  status?: string;
+};
+
+type InvoiceActionsProps = {
+  invoice: InvoiceActionItem;
+  onEdit: () => void;
+  onDelete: () => void;
+  onMarkPaid: () => void;
+  onReminder: () => void;
+  onVoiceCall?: () => void;
+  onDownload: () => void;
+  onRecordPayment: () => void;
+};
+
+export function InvoiceActions({ invoice, onEdit, onDelete, onMarkPaid, onReminder, onVoiceCall, onDownload, onRecordPayment }: InvoiceActionsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -25,9 +41,11 @@ export function InvoiceActions({ invoice, onEdit, onDelete, onMarkPaid, onRemind
         <DropdownMenuItem onClick={onReminder} className="py-2.5 text-sm">
           <Mail className="w-4 h-4 mr-2" /> Reminder Email
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onSendSms} className="py-2.5 text-sm">
-          <MessageSquare className="w-4 h-4 mr-2" /> Reminder SMS
-        </DropdownMenuItem>
+        {onVoiceCall && (
+          <DropdownMenuItem onClick={onVoiceCall} className="py-2.5 text-sm">
+            <PhoneCall className="w-4 h-4 mr-2" /> Voice Call
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={onDelete} className="py-2.5 text-sm text-red-600 focus:text-red-700">
           <Trash2 className="w-4 h-4 mr-2" /> Delete Invoice
         </DropdownMenuItem>

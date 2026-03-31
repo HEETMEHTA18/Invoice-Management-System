@@ -8,10 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+type PaymentDialogInvoice = {
+    id: string | number;
+    invoiceNumber?: string | null;
+    currency?: string | null;
+    balance?: number | string | null;
+    total?: number | string | null;
+    [key: string]: unknown; // Allow extra properties from full Invoice
+};
+
 interface PaymentDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    invoice: any;
+    invoice: PaymentDialogInvoice | null;
     onSuccess: () => void;
 }
 
@@ -31,7 +40,7 @@ export function PaymentDialog({ isOpen, onClose, invoice, onSuccess }: PaymentDi
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!amount || parseFloat(amount) <= 0) return;
+        if (!invoice || !amount || parseFloat(amount) <= 0) return;
 
         setIsLoading(true);
         try {

@@ -47,9 +47,11 @@ function parseTallyYAML(yamlContent: string) {
 
         // For now, take the first transaction that looks like an invoice
         // Or just the first one if we can't find a specific type
-        const invoice = transactions.find((t: any) =>
-            t.voucher_type === "Sales" || t.voucher_type === "Purchase" || t.invoice_no
-        ) || transactions[0];
+        const invoice = transactions.find((t: unknown) => {
+            if (typeof t !== "object" || t === null) return false;
+            const tx = t as Record<string, unknown>;
+            return tx.voucher_type === "Sales" || tx.voucher_type === "Purchase" || Boolean(tx.invoice_no);
+        }) || transactions[0];
 
         if (!invoice) return null;
 

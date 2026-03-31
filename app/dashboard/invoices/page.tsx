@@ -16,7 +16,6 @@ import {
   Filter,
   Banknote,
   AlertTriangle,
-  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -275,7 +274,7 @@ export default function InvoicesPage() {
       const res = await fetch("/api/reminders/auto", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Scan complete. Sent: ${data.sentCount}, Skipped: ${data.skippedCount}, Failed: ${data.failedCount}`);
+        toast.success(`${data.sentCount} reminder email(s) sent successfully. Skipped: ${data.skippedCount}, Failed: ${data.failedCount}`);
       } else {
         toast.error("Failed to run reminders: " + (data.error || "Unknown error"));
       }
@@ -286,29 +285,7 @@ export default function InvoicesPage() {
     }
   }
 
-  async function handleSendSms(inv: Invoice) {
-    const phone = window.prompt("Enter client phone number (e.g. +919876543210):", inv.clientPhone || "");
-    if (!phone) return;
-
-    try {
-      const res = await fetch("/api/invoices/send-sms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId: inv.id, phoneNumber: phone }),
-      });
-
-      if (res.ok) {
-        toast.success("SMS sent successfully!");
-      } else {
-        const err = await res.json();
-        toast.error("Failed to send SMS: " + err.error);
-      }
-    } catch {
-      toast.error("Error sending SMS");
-    }
-  }
-
-  async function handleVoiceCall(inv: Invoice) {
+  async function handleVoiceCall() {
     toast.info("Voice Reminders (AI Agent) will be available in a future update!", {
       description: "We are currently improving the voice agent experience for Indian numbers.",
       duration: 5000,
@@ -618,15 +595,14 @@ export default function InvoicesPage() {
         ) : (
           <div className="overflow-x-auto">
             <InvoiceList
-              invoices={filteredInvoices}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onMarkPaid={handleMarkPaid}
-              onReminder={handleReminder}
-              onSendSms={handleSendSms}
-              onVoiceCall={handleVoiceCall}
-              onDownload={handleDownload}
-              onRecordPayment={handleRecordPayment}
+              invoices={filteredInvoices as never}
+              onEdit={handleEdit as never}
+              onDelete={handleDelete as never}
+              onMarkPaid={handleMarkPaid as never}
+              onReminder={handleReminder as never}
+              onVoiceCall={handleVoiceCall as never}
+              onDownload={handleDownload as never}
+              onRecordPayment={handleRecordPayment as never}
             />
           </div>
         )}

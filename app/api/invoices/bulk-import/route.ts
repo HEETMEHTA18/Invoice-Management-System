@@ -6,6 +6,8 @@ import { XMLParser } from "fast-xml-parser";
 
 import { auth } from "@/lib/auth";
 
+type JsonObject = Record<string, unknown>;
+
 export async function POST(req: Request) {
     try {
         const session = await auth();
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
         console.log("[BulkImport] Received text length:", text.length);
         console.log("[BulkImport] First 100 characters:", text.substring(0, 100).replace(/\n/g, "\\n"));
 
-        let data: any = null;
+        let data: unknown = null;
         let isTallyXml = false;
 
         // Try parsing as XML (Tally format)
@@ -51,21 +53,23 @@ export async function POST(req: Request) {
                     attributeNamePrefix: "@_",
                     textNodeName: "#text"
                 });
-                const xmlObj = parser.parse(text);
+                const xmlObj = parser.parse(text) as JsonObject;
 
                 // Recursive function to find all VOUCHER objects
-                const findVouchers = (obj: any): any[] => {
-                    let results: any[] = [];
+                const findVouchers = (obj: unknown): JsonObject[] => {
+                    const results: JsonObject[] = [];
                     if (!obj || typeof obj !== "object") return results;
 
-                    if (obj.VOUCHER) {
-                        const vData = Array.isArray(obj.VOUCHER) ? obj.VOUCHER : [obj.VOUCHER];
-                        results.push(...vData);
+                    const record = obj as JsonObject;
+                    const voucherNode = record.VOUCHER;
+                    if (voucherNode) {
+                        const vData = Array.isArray(voucherNode) ? voucherNode : [voucherNode];
+                        results.push(...vData.filter((entry): entry is JsonObject => typeof entry === "object" && entry !== null));
                     }
 
-                    for (const key in obj) {
+                    for (const key in record) {
                         if (key !== "VOUCHER") {
-                            results.push(...findVouchers(obj[key]));
+                            results.push(...findVouchers(record[key]));
                         }
                     }
                     return results;
@@ -77,33 +81,39 @@ export async function POST(req: Request) {
                 if (vouchers.length > 0) {
                     isTallyXml = true;
                     data = {
-                        transactions: vouchers.map((v: any) => {
+                        transactions: vouchers.map((v) => {
                             // Map Tally XML fields to a common format
-                            const partyLedger = v.PARTYLEDGERNAME || v["PARTYLEDGERNAME.#text"] || "Unknown Client";
-                            const invoiceNo = v.VOUCHERNUMBER || v.REFERENCE || v["VOUCHERNUMBER.#text"];
-                            const date = v.DATE || v["DATE.#text"];
-                            const narration = v.NARRATION || v["NARRATION.#text"];
+                            const partyLedger = String(v.PARTYLEDGERNAME || v["PARTYLEDGERNAME.#text"] || "Unknown Client");
+                            const invoiceNo = String(v.VOUCHERNUMBER || v.REFERENCE || v["VOUCHERNUMBER.#text"] || "");
+                            const date = String(v.DATE || v["DATE.#text"] || "");
+                            const narration = String(v.NARRATION || v["NARRATION.#text"] || "");
 
                             const inventoryEntriesList = v["ALLINVENTORYENTRIES.LIST"] || [];
                             const inventoryEntries = Array.isArray(inventoryEntriesList) ? inventoryEntriesList : [inventoryEntriesList];
 
-                            const inventory = inventoryEntries.map((i: any) => ({
-                                item_name: i.STOCKITEMNAME || i["STOCKITEMNAME.#text"] || "Item",
-                                quantity: String(i.BILLEDQTY || i["BILLEDQTY.#text"] || "1").split(" ")[0],
-                                rate: parseFloat(String(i.RATE || i["RATE.#text"] || "0").split("/")[0]) || 0,
-                                amount: Math.abs(parseFloat(String(i.AMOUNT || i["AMOUNT.#text"] || "0"))) || 0
-                            }));
+                            const inventory = inventoryEntries.map((entry) => {
+                                const i = (typeof entry === "object" && entry !== null) ? (entry as JsonObject) : {};
+                                return {
+                                    item_name: String(i.STOCKITEMNAME || i["STOCKITEMNAME.#text"] || "Item"),
+                                    quantity: String(i.BILLEDQTY || i["BILLEDQTY.#text"] || "1").split(" ")[0],
+                                    rate: parseFloat(String(i.RATE || i["RATE.#text"] || "0").split("/")[0]) || 0,
+                                    amount: Math.abs(parseFloat(String(i.AMOUNT || i["AMOUNT.#text"] || "0"))) || 0,
+                                };
+                            });
 
                             const ledgerEntriesList = v["ALLLEDGERENTRIES.LIST"] || [];
                             const ledgerEntries = Array.isArray(ledgerEntriesList) ? ledgerEntriesList : [ledgerEntriesList];
 
-                            const ledgers = ledgerEntries.map((l: any) => ({
-                                ledger_name: l.LEDGERNAME || l["LEDGERNAME.#text"] || "Ledger",
-                                amount: Math.abs(parseFloat(String(l.AMOUNT || l["AMOUNT.#text"] || "0"))) || 0
-                            }));
+                            const ledgers = ledgerEntries.map((entry) => {
+                                const l = (typeof entry === "object" && entry !== null) ? (entry as JsonObject) : {};
+                                return {
+                                    ledger_name: String(l.LEDGERNAME || l["LEDGERNAME.#text"] || "Ledger"),
+                                    amount: Math.abs(parseFloat(String(l.AMOUNT || l["AMOUNT.#text"] || "0"))) || 0,
+                                };
+                            });
 
                             return {
-                                voucher_type: v["@_VCHTYPE"] || v.VOUCHERTYPENAME || "Sales",
+                                voucher_type: String(v["@_VCHTYPE"] || v.VOUCHERTYPENAME || "Sales"),
                                 invoice_no: invoiceNo,
                                 date: date,
                                 party_ledger: partyLedger,
@@ -131,25 +141,27 @@ export async function POST(req: Request) {
                 try {
                     data = yaml.load(text);
                     console.log("[BulkImport] Parsed as YAML.");
-                } catch (e: any) {
-                    console.error("[BulkImport] All parsing failed:", e?.message);
+                } catch (e: unknown) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    console.error("[BulkImport] All parsing failed:", message);
                     return NextResponse.json({ error: "Invalid format. Upload JSON, YAML, or Tally XML." }, { status: 400 });
                 }
             }
         }
 
         // --- Robust Array Detection ---
-        let transactions = null;
+        let transactions: unknown[] | null = null;
         if (Array.isArray(data)) {
             transactions = data;
             console.log("[BulkImport] Data is directly an array.");
         } else if (data && typeof data === 'object') {
-            transactions = data.transactions || data.invoices || data.vouchers || data.data;
+            const dataObj = data as Record<string, unknown>;
+            transactions = (dataObj.transactions as unknown[] | undefined) || (dataObj.invoices as unknown[] | undefined) || (dataObj.vouchers as unknown[] | undefined) || (dataObj.data as unknown[] | undefined) || null;
             if (!transactions) {
                 // If no direct key, check if any property is an array
-                for (const key in data) {
-                    if (Array.isArray(data[key])) {
-                        transactions = data[key];
+                for (const key in dataObj) {
+                    if (Array.isArray(dataObj[key])) {
+                        transactions = dataObj[key] as unknown[];
                         console.log(`[BulkImport] Found array in key '${key}'`);
                         break;
                     }
@@ -167,27 +179,32 @@ export async function POST(req: Request) {
         const errors = [];
 
         for (const txn of transactions) {
+            let txnData: JsonObject = {};
             try {
+                txnData = (typeof txn === "object" && txn !== null) ? (txn as JsonObject) : {};
+
                 // Only process Sales vouchers for now
-                if (txn.voucher_type !== "Sales") continue;
+                if (String(txnData.voucher_type || "") !== "Sales") continue;
 
                 // Map YAML fields to Prisma model
                 // Assuming date format is "1-Apr-2025" or ISO
                 let date = new Date();
-                if (txn.date) {
-                    if (typeof txn.date === 'string' && txn.date.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}$/)) {
-                        date = new Date(txn.date);
+                const txnDate = txnData.date;
+                if (txnDate) {
+                    if (typeof txnDate === "string" && txnDate.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}$/)) {
+                        date = new Date(txnDate);
                     } else {
-                        date = new Date(txn.date);
+                        date = new Date(String(txnDate));
                     }
                 }
 
                 let dueDate = null;
-                if (txn.due_date) {
-                    if (typeof txn.due_date === 'string' && txn.due_date.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}$/)) {
-                        dueDate = new Date(txn.due_date);
+                const txnDueDate = txnData.due_date;
+                if (txnDueDate) {
+                    if (typeof txnDueDate === "string" && txnDueDate.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}$/)) {
+                        dueDate = new Date(txnDueDate);
                     } else {
-                        dueDate = new Date(txn.due_date);
+                        dueDate = new Date(String(txnDueDate));
                     }
                 }
 
@@ -195,40 +212,108 @@ export async function POST(req: Request) {
                 let tax = 0;
 
                 // Calculate totals from inventory
-                const items = (txn.inventory || []).map((item: any) => {
-                    const amount = parseFloat(item.amount) || 0;
+                const inventory = Array.isArray(txnData.inventory) ? txnData.inventory : [];
+                const items = inventory.map((rawItem) => {
+                    const item = (typeof rawItem === "object" && rawItem !== null) ? (rawItem as JsonObject) : {};
+                    const amount = parseFloat(String(item.amount ?? "0")) || 0;
                     subtotal += amount;
                     return {
-                        description: item.item_name || "Item",
-                        quantity: parseInt(item.quantity) || 1,
-                        rate: parseFloat(item.rate) || 0,
+                        description: String(item.item_name || "Item"),
+                        quantity: parseInt(String(item.quantity ?? "1"), 10) || 1,
+                        rate: parseFloat(String(item.rate ?? "0")) || 0,
                         amount: amount
-                    }
+                    };
                 });
 
                 // Calculate tax from ledger allocations
-                if (txn.ledger_allocations) {
-                    for (const ledger of txn.ledger_allocations) {
-                        if (ledger.ledger_name.includes("GST") || ledger.ledger_name.includes("Tax")) {
-                            tax += parseFloat(ledger.amount) || 0;
-                        }
+                const ledgerAllocations = Array.isArray(txnData.ledger_allocations) ? txnData.ledger_allocations : [];
+                for (const rawLedger of ledgerAllocations) {
+                    const ledger = (typeof rawLedger === "object" && rawLedger !== null) ? (rawLedger as JsonObject) : {};
+                    const ledgerName = String(ledger.ledger_name || "");
+                    if (ledgerName.includes("GST") || ledgerName.includes("Tax")) {
+                        tax += parseFloat(String(ledger.amount ?? "0")) || 0;
                     }
                 }
 
                 const total = subtotal + tax;
 
+                const toBoolean = (value: unknown, fallback = false) => {
+                    if (typeof value === "boolean") return value;
+                    if (typeof value === "string") {
+                        const normalized = value.trim().toLowerCase();
+                        if (normalized === "true" || normalized === "1" || normalized === "yes") return true;
+                        if (normalized === "false" || normalized === "0" || normalized === "no") return false;
+                    }
+                    if (typeof value === "number") return value === 1;
+                    return fallback;
+                };
+
+                const toIntArray = (value: unknown) => {
+                    if (!Array.isArray(value)) return [] as number[];
+                    const unique = new Set<number>();
+                    for (const raw of value) {
+                        const parsed = Number(raw);
+                        if (!Number.isInteger(parsed)) continue;
+                        if (parsed < 0 || parsed > 30) continue;
+                        unique.add(parsed);
+                    }
+                    return Array.from(unique).sort((a, b) => b - a);
+                };
+
                 // Find customer if exists
                 let customerId = null;
-                if (txn.party_ledger) {
+                const partyLedger = String(txnData.party_ledger || "");
+                if (partyLedger) {
                     // Optionally filter customer by userId if multi-tenant
                     const customer = await prisma.customer.findFirst({
-                        where: { name: txn.party_ledger /*, userId: session?.user?.id */ }
+                        where: { name: partyLedger /*, userId: session?.user?.id */ }
                     });
                     if (customer) customerId = customer.id;
                 }
 
-                const clientName = txn.party_ledger || txn.customer?.name || txn.clientName || "Unknown Client";
-                const invoiceNumber = txn.invoice_no || txn.invoiceNumber || txn.id || `INV-${Date.now()}`;
+                const customerObj = (typeof txnData.customer === "object" && txnData.customer !== null)
+                    ? (txnData.customer as JsonObject)
+                    : {};
+                const clientName = String(txnData.party_ledger || customerObj.name || txnData.clientName || "Unknown Client");
+                const clientEmail = String(
+                    txnData.client_email || txnData.clientEmail || customerObj.email || ""
+                );
+                const clientPhone = String(
+                    txnData.client_phone || txnData.clientPhone || customerObj.phone || ""
+                );
+                const invoiceNumber = String(txnData.invoice_no || txnData.invoiceNumber || txnData.id || `INV-${Date.now()}`);
+                const rawStatus = String(txnData.status || "Pending").trim();
+                const status = rawStatus ? rawStatus[0].toUpperCase() + rawStatus.slice(1).toLowerCase() : "Pending";
+
+                const autoReminderEnabled = toBoolean(
+                    txnData.auto_reminder_enabled ?? txnData.autoReminderEnabled,
+                    false
+                );
+                const reminderOffsets = toIntArray(txnData.reminder_offsets ?? txnData.reminderOffsets);
+                const overdueReminderEnabled = toBoolean(
+                    txnData.overdue_reminder_enabled ?? txnData.overdueReminderEnabled,
+                    false
+                );
+                const parsedEveryDays = Number(
+                    txnData.overdue_reminder_every_days ?? txnData.overdueReminderEveryDays ?? 3
+                );
+                const overdueReminderEveryDays = Number.isInteger(parsedEveryDays)
+                    ? Math.max(1, Math.min(30, parsedEveryDays))
+                    : 3;
+                const rawReminderChannel = String(
+                    txnData.reminder_channel ?? txnData.reminderChannel ?? "EMAIL"
+                ).toUpperCase();
+                const reminderChannel =
+                    rawReminderChannel === "SMS" || rawReminderChannel === "BOTH"
+                        ? rawReminderChannel
+                        : "EMAIL";
+                const parsedAmountPaid = Number(txnData.amount_paid ?? txnData.amountPaid ?? NaN);
+                const amountPaid = status === "Paid"
+                    ? total
+                    : Number.isFinite(parsedAmountPaid)
+                        ? Math.max(0, Math.min(total, parsedAmountPaid))
+                        : 0;
+                const balance = Math.max(0, total - amountPaid);
 
                 // Check for duplicate invoice number
                 if (invoiceNumber) {
@@ -263,16 +348,25 @@ export async function POST(req: Request) {
                         senderEmail: settings?.email || "shivhardware@gmail.com",
                         senderAddress: settings?.address || "Shiv Hardware, Nadiad",
                         clientName: clientName,
+                        clientEmail,
+                        clientPhone,
                         date: date,
                         dueDate: dueDate,
-                        status: "Pending", // Default status
+                        status,
                         subtotal: subtotal,
                         tax: tax,
                         total: total,
-                        note: txn.narration || "",
+                        note: String(txnData.narration || ""),
                         // Use legacy fields for compatibility if needed, or map properly
                         customer: clientName,
                         amount: total,
+                        amountPaid,
+                        balance,
+                        autoReminderEnabled,
+                        reminderOffsets: autoReminderEnabled ? reminderOffsets : [],
+                        overdueReminderEnabled: autoReminderEnabled ? overdueReminderEnabled : false,
+                        overdueReminderEveryDays,
+                        reminderChannel,
                         customerId: customerId,
                         items: {
                             create: items
@@ -282,7 +376,7 @@ export async function POST(req: Request) {
                 createdInvoices.push(invoice);
             } catch (error) {
                 console.error("Error creating invoice:", error);
-                errors.push({ transaction: txn, error: String(error) });
+                errors.push({ transaction: txnData, error: String(error) });
             }
         }
 

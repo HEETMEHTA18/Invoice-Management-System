@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db";
 import { sendInvoiceReminder } from "@/lib/gmail";
 import { generateInvoicePDFBuffer } from "@/lib/pdf";
 import { getInvoiceReminderTemplate } from "@/lib/templates";
-import { sendSMS } from "@/lib/sms";
 import { sendTelegramMessage } from "@/lib/telegram";
 import QRCode from "qrcode";
 import { buildPaymentPayload, isValidPaymentPayload } from "@/lib/payment-qr";
@@ -46,14 +45,10 @@ export async function sendInvoiceReminderById(params: SendReminderParams): Promi
   }
 
   const reminderChannel = params.channelOverride ?? normalizeReminderChannel(invoice.reminderChannel);
-  const useEmail = reminderChannel === "EMAIL" || reminderChannel === "BOTH";
-  const useSms = reminderChannel === "SMS" || reminderChannel === "BOTH";
+  const useEmail = reminderChannel === "EMAIL";
 
   if (useEmail && !invoice.clientEmail) {
     return { sent: false, invoiceId: invoice.id, reason: "Client email missing" };
-  }
-  if (useSms && !String(invoice.clientPhone || "").trim()) {
-    return { sent: false, invoiceId: invoice.id, reason: "Client phone missing" };
   }
 
   const actingUserId = invoice.ownerUserId || params.fallbackUserId || null;
@@ -146,26 +141,6 @@ export async function sendInvoiceReminderById(params: SendReminderParams): Promi
     } catch (error) {
       console.error("Gmail API send failed:", error instanceof Error ? error.message : error);
       return { sent: false, invoiceId: invoice.id, reason: `Gmail API Error: ${error instanceof Error ? error.message : "Unknown error"}` };
-    }
-  }
-
-  if (useSms && invoice.clientPhone) {
-    const dueDateLabel = invoice.dueDate
-      ? new Date(invoice.dueDate).toLocaleDateString()
-      : new Date(invoice.date).toLocaleDateString();
-    const smsMessage =
-      `${subject}. Invoice #${invoice.invoiceNumber} ` +
-      `Balance: ${invoice.currency} ${Number(invoice.balance).toFixed(2)}. ` +
-      `Due: ${dueDateLabel}. From: ${invoice.senderName || "Invoice Management"}.`;
-
-    try {
-      await sendSMS(invoice.clientPhone, smsMessage);
-      channelsSent.push("SMS");
-    } catch (error) {
-      console.error("SMS send failed:", error);
-      if (channelsSent.length === 0) {
-        return { sent: false, invoiceId: invoice.id, reason: "SMS send failed" };
-      }
     }
   }
 

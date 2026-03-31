@@ -1,15 +1,15 @@
 
 import Link from "next/link";
-import { User, LogOut, LayoutDashboard, FileText, Menu } from "lucide-react";
+import Image from "next/image";
+import { Menu } from "lucide-react";
 import { requireUser } from "@/lib/hooks";
-import { DashboardLinks } from "./DashboardLink";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { DashboardSidebar } from "./components/DashboardSidebar";
 import { UserNav } from "./components/UserNav";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const session = await requireUser();
+    await requireUser();
 
     return (
         <div className="flex h-dvh bg-white text-gray-900 overflow-hidden">
@@ -35,10 +35,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
                             </SheetContent>
                         </Sheet>
                         <Link href="/dashboard" className="flex items-center gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white font-bold">
-                                <FileText className="h-4 w-4 text-white" />
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+                                <Image
+                                    src="/icon.png"
+                                    alt="Invonotify logo"
+                                    width={20}
+                                    height={20}
+                                    className="h-5 w-5 object-contain"
+                                    priority
+                                />
                             </div>
-                            <span className="text-lg font-bold text-gray-900">Invonotify</span>
+                            <span className="text-lg font-bold text-gray-900">invonotify</span>
                         </Link>
                     </div>
 

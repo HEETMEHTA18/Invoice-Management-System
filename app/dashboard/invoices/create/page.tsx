@@ -37,6 +37,56 @@ type CompanySettings = {
   signature: string | null;
 };
 
+type CustomerType = {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+};
+
+type ProductType = {
+  id: string;
+  name: string;
+  price?: number;
+  basePrice?: number;
+  hsnCode?: string;
+  unit?: string;
+  defaultTaxRate?: number | string;
+};
+
+type FetchedInvoiceData = {
+  id: number;
+  invoiceNumber: string;
+  date?: string;
+  dueDate?: string;
+  autoReminderEnabled?: boolean;
+  reminderOffsets?: Array<number | string>;
+  overdueReminderEnabled?: boolean;
+  overdueReminderEveryDays?: number | string;
+  reminderChannel?: string;
+  senderName?: string;
+  senderEmail?: string;
+  senderAddress?: string;
+  clientName?: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  clientAddress?: string;
+  currency?: string;
+  note?: string;
+  taxRate?: number | string;
+  discount?: number | string;
+  gstType?: string;
+  template?: string;
+  items?: Array<{
+    description: string;
+    hsnCode?: string;
+    quantity: number | string;
+    rate: number | string;
+    amount: number | string;
+  }>;
+};
+
 import { Suspense } from "react";
 
 function CreateInvoiceContent() {
@@ -93,8 +143,8 @@ function CreateInvoiceContent() {
   const invoiceId = searchParams.get("invoiceId");
   const isEditing = !!invoiceId;
 
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<CustomerType[]>([]);
+  const [products, setProducts] = useState<ProductType[]>([]);
   const [updatingItemIndex, setUpdatingItemIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -208,14 +258,13 @@ function CreateInvoiceContent() {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function populateFormFromData(data: any) {
+  function populateFormFromData(data: FetchedInvoiceData) {
     if (data.invoiceNumber) setInvoiceNumber(data.invoiceNumber);
     if (data.date) setDate(data.date);
     if (data.dueDate) setDueDate(data.dueDate);
     if (typeof data.autoReminderEnabled === "boolean") setAutoReminderEnabled(data.autoReminderEnabled);
     if (Array.isArray(data.reminderOffsets)) {
-      setReminderOffsets(data.reminderOffsets.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x)));
+      setReminderOffsets(data.reminderOffsets.map((x) => Number(x)).filter((x: number) => Number.isInteger(x)));
     }
     if (typeof data.overdueReminderEnabled === "boolean") {
       setOverdueReminderEnabled(data.overdueReminderEnabled);
@@ -239,7 +288,7 @@ function CreateInvoiceContent() {
     if (data.discount) setDiscount(Number(data.discount));
     if (data.items && data.items.length > 0) {
       setItems(
-        data.items.map((item: any) => ({
+        data.items.map((item) => ({
           description: item.description || "",
           hsnCode: item.hsnCode || "",
           quantity: Number(item.quantity) || 1,
@@ -264,7 +313,7 @@ function CreateInvoiceContent() {
     try {
       const res = await fetch(`/api/invoices/${id}`);
       if (res.ok) {
-        const data = await res.json();
+        const data: FetchedInvoiceData = await res.json();
         // Populate form
         setInvoiceNumber(data.invoiceNumber);
         setDate(data.date ? new Date(data.date).toISOString().split('T')[0] : "");
@@ -272,7 +321,7 @@ function CreateInvoiceContent() {
         setAutoReminderEnabled(Boolean(data.autoReminderEnabled));
         setReminderOffsets(
           Array.isArray(data.reminderOffsets)
-            ? data.reminderOffsets.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x))
+            ? data.reminderOffsets.map((x) => Number(x)).filter((x: number) => Number.isInteger(x))
             : [3, 1, 0]
         );
         setOverdueReminderEnabled(Boolean(data.overdueReminderEnabled));
@@ -280,17 +329,17 @@ function CreateInvoiceContent() {
         if (data.reminderChannel) {
           setReminderChannel(String(data.reminderChannel).toUpperCase() as ReminderChannel);
         }
-        setSenderName(data.senderName);
-        setSenderEmail(data.senderEmail);
-        setSenderAddress(data.senderAddress);
-        setClientName(data.clientName);
-        setClientEmail(data.clientEmail);
+        setSenderName(data.senderName || "");
+        setSenderEmail(data.senderEmail || "");
+        setSenderAddress(data.senderAddress || "");
+        setClientName(data.clientName || "");
+        setClientEmail(data.clientEmail || "");
         setClientPhone(data.clientPhone || "");
-        setClientAddress(data.clientAddress);
-        setCurrency(data.currency);
-        setNote(data.note);
+        setClientAddress(data.clientAddress || "");
+        setCurrency(data.currency || "INR");
+        setNote(data.note || "");
         if (data.items && data.items.length > 0) {
-          setItems(data.items.map((item: any) => ({
+          setItems(data.items.map((item) => ({
             description: item.description,
             hsnCode: item.hsnCode || "",
             quantity: Number(item.quantity),
@@ -298,7 +347,7 @@ function CreateInvoiceContent() {
             amount: Number(item.amount)
           })));
         }
-        if (data.gstType) setGstType(data.gstType);
+        if (data.gstType) setGstType(data.gstType as "INTRA" | "INTER");
         if (data.template) setTemplate(data.template);
         setCreatedInvoiceId(data.id);
       } else {
@@ -424,7 +473,7 @@ function CreateInvoiceContent() {
     }
 
     // Company logo
-    let logoY = 8;
+    const logoY = 8;
     if (logoBase64) {
       try {
         doc.addImage(logoBase64, "PNG", 14, logoY, 35, 35);
@@ -538,8 +587,9 @@ function CreateInvoiceContent() {
       margin: { left: 14, right: 14 },
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    y = (doc as any).lastAutoTable.finalY + 10;
+    // Type declaration for jsPDF autocrop table extension
+    const autoTableDoc = doc as typeof doc & { lastAutoTable: { finalY: number } };
+    y = autoTableDoc.lastAutoTable.finalY + 10;
 
     // Totals
     const totalsX = pageWidth - 80;
@@ -1071,7 +1121,7 @@ function CreateInvoiceContent() {
                       required
                     />
                     <datalist id="customer-list">
-                      {Array.isArray(customers) && customers.map((c: any) => (
+                      {Array.isArray(customers) && customers.map((c) => (
                         <option key={c.id} value={c.name} />
                       ))}
                     </datalist>

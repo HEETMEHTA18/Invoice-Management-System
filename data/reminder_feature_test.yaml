@@ -1,0 +1,231 @@
+transactions:
+  - voucher_type: Sales
+    date: 2026-03-20
+    due_date: 2026-04-07
+    invoice_no: TEST-RMD-7D
+    party_ledger: Reminder Test Client A
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543210"
+    status: Pending
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: Web Development Sprint
+        quantity: 1
+        rate: 12000
+        amount: 12000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 2160
+    narration: "Scenario: 7-day reminder trigger"
+
+  - voucher_type: Sales
+    date: 2026-03-24
+    due_date: 2026-04-03
+    invoice_no: TEST-RMD-3D
+    party_ledger: Reminder Test Client B
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543211"
+    status: Pending
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: SEO Retainer
+        quantity: 1
+        rate: 8000
+        amount: 8000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 1440
+    narration: "Scenario: 3-day reminder trigger"
+
+  - voucher_type: Sales
+    date: 2026-03-25
+    due_date: 2026-04-01
+    invoice_no: TEST-RMD-1D
+    party_ledger: Reminder Test Client C
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543212"
+    status: Pending
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: App Maintenance
+        quantity: 1
+        rate: 7000
+        amount: 7000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 1260
+    narration: "Scenario: 1-day reminder trigger"
+
+  - voucher_type: Sales
+    date: 2026-03-26
+    due_date: 2026-03-31
+    invoice_no: TEST-RMD-DUE-TODAY
+    party_ledger: Reminder Test Client D
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543213"
+    status: Pending
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: Branding Design
+        quantity: 1
+        rate: 9500
+        amount: 9500
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 1710
+    narration: "Scenario: due-today reminder trigger"
+
+  - voucher_type: Sales
+    date: 2026-03-22
+    due_date: 2026-03-30
+    invoice_no: TEST-RMD-OD-1
+    party_ledger: Reminder Test Client E
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543214"
+    status: Pending
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: Hosting and Infra
+        quantity: 1
+        rate: 5000
+        amount: 5000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 900
+    narration: "Scenario: overdue by 1 day (daily overdue reminders)"
+
+  - voucher_type: Sales
+    date: 2026-03-18
+    due_date: 2026-03-28
+    invoice_no: TEST-RMD-OD-3
+    party_ledger: Reminder Test Client F
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543215"
+    status: Pending
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: BOTH
+    inventory:
+      - item_name: Performance Marketing
+        quantity: 1
+        rate: 14000
+        amount: 14000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 2520
+    narration: "Scenario: overdue by 3 days, both SMS and email channel"
+
+  - voucher_type: Sales
+    date: 2026-03-15
+    due_date: 2026-03-24
+    invoice_no: TEST-RMD-OD-7
+    party_ledger: Reminder Test Client G
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543216"
+    status: Pending
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: UI Revamp Project
+        quantity: 1
+        rate: 20000
+        amount: 20000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 3600
+    narration: "Scenario: overdue by 7 days, daily reminder validation"
+
+  - voucher_type: Sales
+    date: 2026-03-10
+    due_date: 2026-03-20
+    invoice_no: TEST-RMD-PAID-OD
+    party_ledger: Reminder Test Client H
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543217"
+    status: Paid
+    amount_paid: 11800
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: Consulting Package
+        quantity: 1
+        rate: 10000
+        amount: 10000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 1800
+    narration: "Scenario: paid invoice should be skipped by auto-reminder"
+
+  - voucher_type: Sales
+    date: 2026-03-20
+    due_date: 2026-03-29
+    invoice_no: TEST-RMD-NO-AUTO
+    party_ledger: Reminder Test Client I
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543218"
+    status: Pending
+    auto_reminder_enabled: false
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: Maintenance Add-on
+        quantity: 1
+        rate: 6000
+        amount: 6000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 1080
+    narration: "Scenario: auto reminder disabled should never send"
+
+  - voucher_type: Sales
+    date: 2026-03-27
+    due_date: 2026-03-31
+    invoice_no: TEST-RMD-PENDING-TODAY
+    party_ledger: Reminder Test Client J
+    client_email: heetmehta18125@gmail.com
+    client_phone: "+919876543219"
+    status: Pending
+    auto_reminder_enabled: true
+    reminder_offsets: [7, 3, 1, 0]
+    overdue_reminder_enabled: true
+    overdue_reminder_every_days: 1
+    reminder_channel: EMAIL
+    inventory:
+      - item_name: Content Strategy
+        quantity: 1
+        rate: 9000
+        amount: 9000
+    ledger_allocations:
+      - ledger_name: GST 18%
+        amount: 1620
+    narration: "Scenario: pending + due today for immediate send test"

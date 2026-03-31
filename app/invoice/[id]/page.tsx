@@ -182,7 +182,7 @@ function InvoiceDetailContent() {
         }
     }
 
-    function updateItem(index: number, field: keyof InvoiceItem, value: any) {
+    function updateItem(index: number, field: keyof InvoiceItem, value: string | number) {
         if (!invoice) return;
         const newItems = [...invoice.items];
         newItems[index] = { ...newItems[index], [field]: value };

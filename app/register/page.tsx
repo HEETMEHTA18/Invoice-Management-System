@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { handleRegister } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -32,6 +33,10 @@ export default async function Register({
         <div className="flex h-screen w-full items-center justify-center px-4">
             <Card className="w-full max-w-sm">
                 <CardHeader>
+                    <Link href="/" className="mb-2 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
+                        <ArrowLeft className="h-4 w-4" />
+                        Back to Home
+                    </Link>
                     <CardTitle className="text-2xl">Create an Account</CardTitle>
                     <CardDescription>
                         Enter your details to register for Invoice Management.

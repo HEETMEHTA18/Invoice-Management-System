@@ -161,7 +161,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // Update invoice and optionally replace items
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       ...invoiceData,
       template: invoiceData.template || undefined,
       date: invoiceData.date ? new Date(invoiceData.date) : undefined,
@@ -214,8 +214,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         invoiceData.dueDate !== undefined
       )
     ) {
-      const effectiveDueDate =
-        updateData.dueDate !== undefined ? updateData.dueDate : existingBase.dueDate;
+      const effectiveDueDate: Date | null | undefined =
+        updateData.dueDate !== undefined ? (updateData.dueDate as Date | null) : existingBase.dueDate;
       const reminderSettings = normalizeReminderSettings({
         autoReminderEnabled: invoiceData.autoReminderEnabled ?? existingReminder?.autoReminderEnabled,
         reminderOffsets: invoiceData.reminderOffsets ?? existingReminder?.reminderOffsets,
@@ -280,11 +280,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     };
     const legacyWhere = { id: invoiceId, userId };
 
-    let invoice: any;
+    let invoice: unknown = null;
     try {
       const updated = await prisma.invoice.updateMany({
         where: primaryWhere,
-        data: updateData as any,
+        data: updateData as Prisma.InvoiceUpdateManyMutationInput,
       });
 
       if (updated.count === 0) {
@@ -400,16 +400,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
+    const reminderInvoice = invoice as {
+      id: number;
+      autoReminderEnabled?: boolean;
+      dueDate?: Date | null;
+      status?: string;
+      reminderOffsets?: unknown;
+      overdueReminderEnabled?: boolean;
+      overdueReminderEveryDays?: number;
+    };
+
     // Immediate reminder check
-    if (reminderFieldsSupported && invoice.autoReminderEnabled && invoice.dueDate && invoice.status !== "Paid") {
+    if (reminderFieldsSupported && reminderInvoice.autoReminderEnabled && reminderInvoice.dueDate && reminderInvoice.status !== "Paid") {
       const { getReminderMatchForDate } = await import("@/lib/reminders");
       const { sendInvoiceReminderById } = await import("@/lib/mail-service");
 
       const match = getReminderMatchForDate({
-        dueDate: invoice.dueDate,
-        reminderOffsets: (invoice.reminderOffsets as number[]) || [],
-        overdueReminderEnabled: invoice.overdueReminderEnabled,
-        overdueReminderEveryDays: invoice.overdueReminderEveryDays,
+        dueDate: reminderInvoice.dueDate,
+        reminderOffsets: Array.isArray(reminderInvoice.reminderOffsets)
+          ? (reminderInvoice.reminderOffsets as number[])
+          : [],
+        overdueReminderEnabled: reminderInvoice.overdueReminderEnabled ?? false,
+        overdueReminderEveryDays: reminderInvoice.overdueReminderEveryDays ?? 3,
       });
 
       if (match) {
@@ -417,7 +429,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const alreadySent = await prisma.invoiceReminderLog.findUnique({
           where: {
             invoiceId_reminderKey: {
-              invoiceId: invoice.id,
+                invoiceId: reminderInvoice.id,
               reminderKey: match.reminderKey,
             },
           },
@@ -426,7 +438,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         if (!alreadySent) {
           try {
             await sendInvoiceReminderById({
-              invoiceId: invoice.id,
+              invoiceId: reminderInvoice.id,
               reminderType: match.reminderType,
               daysUntilDue: match.daysUntilDue,
               daysOverdue: match.daysOverdue,
@@ -434,7 +446,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
             await prisma.invoiceReminderLog.create({
               data: {
-                invoiceId: invoice.id,
+                invoiceId: reminderInvoice.id,
                 reminderKey: match.reminderKey,
                 reminderType: match.reminderType,
                 targetDate: match.targetDate,

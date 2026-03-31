@@ -44,7 +44,11 @@ function isLongTermCustomer(
 async function runAutoReminderSweep(now: Date, limitUserId?: string, manualOverride = false) {
   const invoices = await prisma.invoice.findMany({
     where: {
-      ...(limitUserId ? { ownerUserId: limitUserId } : {}),
+      ...(limitUserId
+        ? {
+            OR: [{ ownerUserId: limitUserId }, { userId: limitUserId }],
+          }
+        : {}),
       autoReminderEnabled: true,
       dueDate: { not: null },
       status: { not: "Paid" },
@@ -56,6 +60,7 @@ async function runAutoReminderSweep(now: Date, limitUserId?: string, manualOverr
       overdueReminderEnabled: true,
       overdueReminderEveryDays: true,
       ownerUserId: true,
+      userId: true,
       customerRel: {
         select: { isVipExempt: true, firstInvoiceAt: true },
       },
@@ -109,6 +114,7 @@ async function runAutoReminderSweep(now: Date, limitUserId?: string, manualOverr
         reminderType: match.reminderType,
         daysUntilDue: match.daysUntilDue,
         daysOverdue: match.daysOverdue,
+        fallbackUserId: invoice.ownerUserId || invoice.userId || null,
       });
 
       if (!result.sent) {

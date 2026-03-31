@@ -61,8 +61,9 @@ export async function POST(req: NextRequest) {
         });
 
         return NextResponse.json(result, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Failed to record payment:", error);
-        return NextResponse.json({ error: error.message || "Failed to record payment" }, { status: 500 });
+        const message = error instanceof Error ? error.message : "Failed to record payment";
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

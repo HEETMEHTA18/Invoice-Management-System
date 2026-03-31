@@ -19,10 +19,10 @@ function parseInvoiceFromText(text: string) {
     let dueDate = "";
     let senderName = "";
     let senderEmail = "";
-    let senderAddress = "";
+    const senderAddress = "";
     let clientName = "";
     let clientEmail = "";
-    let clientAddress = "";
+    const clientAddress = "";
     let note = "";
     let currency = "INR";
     const items: {
@@ -45,8 +45,6 @@ function parseInvoiceFromText(text: string) {
         const rawLine = lines[i];
         // Clean markdown formatting (*, _, etc) for easier regex matching
         const line = rawLine.replace(/[*_#`]/g, " ").trim();
-        const lowerLine = line.toLowerCase();
-
         // Invoice number
         if (!invoiceNumber && /invoice\s*(no|number|#|:)/i.test(line)) {
             const match = line.match(
@@ -309,7 +307,8 @@ export async function POST(req: NextRequest) {
                     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {
                         try {
-                            const parsedJson = JSON.parse(jsonMatch[0]);
+                            const parsedJson = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+                            const lineItems = Array.isArray(parsedJson.line_items) ? parsedJson.line_items : [];
                             // Map to our internal format
                             return NextResponse.json({
                                 invoiceNumber: parsedJson.invoice_number || parsedJson.invoiceNumber || "",
@@ -319,12 +318,17 @@ export async function POST(req: NextRequest) {
                                 clientName: parsedJson.client_name || parsedJson.clientName || "",
                                 total: parsedJson.total_amount || parsedJson.total || 0,
                                 currency: parsedJson.currency || "INR",
-                                items: Array.isArray(parsedJson.line_items) ? parsedJson.line_items.map((item: any) => ({
-                                    description: item.description || "",
-                                    quantity: Number(item.quantity) || 1,
-                                    rate: Number(item.rate) || 0,
-                                    amount: Number(item.amount) || 0
-                                })) : [],
+                                items: lineItems.map((item) => {
+                                    const row = (typeof item === "object" && item !== null)
+                                        ? (item as Record<string, unknown>)
+                                        : {};
+                                    return {
+                                        description: String(row.description ?? ""),
+                                        quantity: Number(row.quantity) || 1,
+                                        rate: Number(row.rate) || 0,
+                                        amount: Number(row.amount) || 0,
+                                    };
+                                }),
                                 rawText // Include for debugging
                             });
                         } catch (e) {

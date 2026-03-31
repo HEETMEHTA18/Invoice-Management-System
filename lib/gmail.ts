@@ -150,9 +150,13 @@ export async function sendInvoiceReminder({
                 raw: encodedMessage,
             },
         });
-    } catch (error: any) {
-        const msg = error?.message || "";
-        if (error.code === 401 || msg.includes("unauthorized_client") || msg.includes("invalid_grant")) {
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : "";
+        const errorCode =
+            typeof error === "object" && error !== null && "code" in error
+                ? (error as { code?: number }).code
+                : undefined;
+        if (errorCode === 401 || msg.includes("unauthorized_client") || msg.includes("invalid_grant")) {
             throw new Error("Google access expired or token revoked. Please sign out and sign in again with Google to refresh your Gmail permissions.");
         }
         throw error;

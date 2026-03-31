@@ -10,7 +10,7 @@ export function DashboardSidebar() {
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
                         <Image
                             src="/icon.png"
-                            alt="InvoNotify favicon"
+                            alt="Invonotify logo"
                             width={24}
                             height={24}
                             className="h-6 w-6 object-contain"
@@ -18,7 +18,7 @@ export function DashboardSidebar() {
                         />
                     </div>
                     <span className="text-xl font-bold space-x-0">
-                        <span className="text-gray-900">InvoNotify</span>
+                        <span className="text-gray-900">invonotify</span>
                     </span>
                 </Link>
             </div>

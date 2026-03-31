@@ -53,6 +53,11 @@ type HighRiskGroupRow = {
     total_overdue: Prisma.Decimal | number | string | null;
 };
 
+type StatusCountRow = {
+    status: string;
+    _count: { _all: number };
+};
+
 export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -165,7 +170,10 @@ export async function GET(req: NextRequest) {
         }
         statusDistributionMap.set("Overdue", overdueTotalCount);
 
-        for (const row of rawStatusCounts) {
+        const overdueStatusRows = overdueStatusCounts as StatusCountRow[];
+        const rawStatusRows = rawStatusCounts as StatusCountRow[];
+
+        for (const row of rawStatusRows) {
             const count = row._count._all;
             const status = row.status;
 
@@ -173,13 +181,13 @@ export async function GET(req: NextRequest) {
                 statusDistributionMap.set(status, count);
             } else if (status === "Pending" || status === "Draft") {
                 // Subtract overdue count from Pending/Draft to avoid double counting
-                const overdueForStatus = (overdueStatusCounts as any[]).find((osc: any) => osc.status === status)?._count._all ?? 0;
+                const overdueForStatus = overdueStatusRows.find((osc) => osc.status === status)?._count._all ?? 0;
                 statusDistributionMap.set(status, Math.max(0, count - overdueForStatus));
             }
         }
 
         const statusDistribution = Array.from(statusDistributionMap.entries())
-            .filter(([_, value]) => value > 0)
+            .filter(([, value]) => value > 0)
             .map(([name, value]) => ({ name, value }));
 
         // Efficiently fetch high risk customers using a single batch query for latest invoices
@@ -219,7 +227,7 @@ export async function GET(req: NextRequest) {
             };
         });
 
-        const recentActivity = (recentInvoicesRaw as any[]).map((inv: any) => {
+        const recentActivity = recentInvoicesRaw.map((inv) => {
             let status = inv.status;
             if (status !== "Paid" && inv.dueDate && new Date(inv.dueDate) < now) {
                 status = "Overdue";
