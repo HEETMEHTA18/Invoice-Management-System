@@ -716,12 +716,6 @@ function CreateInvoiceContent() {
       return;
     }
 
-    if (reminderChannel !== "EMAIL" && !clientPhone.trim()) {
-      setError("Please provide client phone number for SMS or Both reminder channel.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const url = isEditing ? `/api/invoices/${invoiceId}` : "/api/invoices";
       const method = isEditing ? "PUT" : "POST";
@@ -1134,7 +1128,7 @@ function CreateInvoiceContent() {
                       onChange={(e) => setClientEmail(e.target.value)}
                       placeholder="client@email.com"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                      required={reminderChannel !== "SMS"}
+                      required
                     />
                   </div>
                   <div>
@@ -1145,7 +1139,6 @@ function CreateInvoiceContent() {
                       onChange={(e) => setClientPhone(e.target.value)}
                       placeholder="+91XXXXXXXXXX"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                      required={reminderChannel !== "EMAIL"}
                     />
                   </div>
                   <div>
@@ -1224,7 +1217,7 @@ function CreateInvoiceContent() {
               >
                 {REMINDER_CHANNEL_OPTIONS.map((channel) => (
                   <option key={channel} value={channel}>
-                    {channel === "EMAIL" ? "Email" : channel === "SMS" ? "SMS" : "Both (Email + SMS)"}
+                    {channel === "EMAIL" ? "Email" : channel}
                   </option>
                 ))}
               </select>
