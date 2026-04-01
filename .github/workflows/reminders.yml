@@ -12,6 +12,7 @@ jobs:
   send-reminders:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: Production
 
     steps:
       - name: Checkout repository
