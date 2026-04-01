@@ -36,35 +36,24 @@ function isCronAuthorized(req: NextRequest) {
   return bearer === configuredSecret || headerSecret === configuredSecret;
 }
 
-/** Returns true if a customer qualifies as a long-term regular (≥ 2 years). */
-function isLongTermCustomer(
-  customer: { isVipExempt: boolean; firstInvoiceAt: Date | null } | null | undefined
-): boolean {
-  if (!customer) return false;
-  if (customer.isVipExempt) return true;
-  if (customer.firstInvoiceAt) {
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-    return customer.firstInvoiceAt <= twoYearsAgo;
-  }
-  return false;
-}
-
-/**
- * manualOverride = true  → called from the UI/dashboard; VIP exemption is bypassed
- * manualOverride = false → called from cron; VIP customers are skipped automatically
- */
-async function runAutoReminderSweep(now: Date, limitUserId?: string, manualOverride = false) {
+async function runAutoReminderSweep(now: Date, limitUserId?: string) {
   const invoices = await prisma.invoice.findMany({
     where: {
-      ...(limitUserId
-        ? {
-            OR: [{ ownerUserId: limitUserId }, { userId: limitUserId }],
-          }
-        : {}),
       autoReminderEnabled: true,
       dueDate: { not: null },
-      status: { not: "Paid" },
+      status: { in: ["Pending", "Draft"] },
+      AND: [
+        ...(limitUserId
+          ? [
+              {
+                OR: [{ ownerUserId: limitUserId }, { userId: limitUserId }],
+              },
+            ]
+          : []),
+        {
+          OR: [{ ownerUserId: { not: null } }, { userId: { not: null } }],
+        },
+      ],
     },
     select: {
       id: true,
@@ -74,25 +63,15 @@ async function runAutoReminderSweep(now: Date, limitUserId?: string, manualOverr
       overdueReminderEveryDays: true,
       ownerUserId: true,
       userId: true,
-      customerRel: {
-        select: { isVipExempt: true, firstInvoiceAt: true },
-      },
     },
   });
 
   let sentCount = 0;
   let skippedCount = 0;
-  let vipSkippedCount = 0;
   let failedCount = 0;
   const failures: Array<{ invoiceId: number; error: string }> = [];
 
   for (const invoice of invoices) {
-    // Skip long-term / VIP customers from automatic sweeps (not from manual sends)
-    if (!manualOverride && isLongTermCustomer(invoice.customerRel)) {
-      vipSkippedCount += 1;
-      continue;
-    }
-
     const match = getReminderMatchForDate({
       dueDate: invoice.dueDate,
       reminderOffsets: (invoice.reminderOffsets as number[]) || [],
@@ -167,7 +146,6 @@ async function runAutoReminderSweep(now: Date, limitUserId?: string, manualOverr
     scanned: invoices.length,
     sentCount,
     skippedCount,
-    vipSkippedCount,
     failedCount,
     failures: failures.slice(0, 20),
   };
@@ -189,12 +167,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Cron → scan all, no manualOverride (VIP exemption active)
-    // Manual UI trigger → scan user's own invoices, allow overriding VIP exemption
+    // Cron trigger scans all accounts. Manual UI trigger scans only the current user's account.
     const limitUserId = cronAllowed ? undefined : manualUserId;
-    const manualOverride = !cronAllowed && !!manualUserId;
 
-    const result = await runAutoReminderSweep(new Date(), limitUserId, manualOverride);
+    const result = await runAutoReminderSweep(new Date(), limitUserId);
     return NextResponse.json(result);
   } catch (error) {
     console.error("Auto reminder run failed:", error);

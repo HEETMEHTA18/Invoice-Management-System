@@ -43,10 +43,11 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
   const headerGradient = isAlert
     ? "linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)"
     : "linear-gradient(135deg, #065f46 0%, #10b981 100%)";
-  const statusLabel = isAlert ? "Overdue" : "Due Soon";
+  const statusSymbol = isAlert ? "✕" : "✓";
+  const statusLabel = isAlert ? "Overdue" : "Pending";
   const reminderLabel = reminderBadge || (isAlert ? "OVERDUE" : "REMINDER");
-  const statusHeading = isAlert ? "Overdue Payment Alert" : "Payment Reminder";
-  const statusSubheading = isAlert ? "Immediate action recommended" : "On-track payment reminder";
+  const statusHeading = isAlert ? "Overdue Payment Alert" : "Pending Payment Reminder";
+  const statusSubheading = isAlert ? "Immediate action recommended" : "Payment due soon";
   const mailTitle = reminderTitle || (isAlert ? "Overdue Invoice Alert" : "Invoice Payment Reminder");
 
   return `
@@ -138,6 +139,11 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
       text-transform: uppercase;
       white-space: nowrap;
     }
+    .badge-symbol {
+      margin-right: 6px;
+      font-weight: 900;
+      line-height: 1;
+    }
     .section {
       padding: 24px;
       border-bottom: 8px solid #f3f4f6;
@@ -167,9 +173,9 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
       display: inline-block;
       position: relative;
     }
-    /* Simple CSS checkmark/exclamation */
+    /* Symbol for payment state */
     .status-icon-inner::after {
-      content: '${isAlert ? "!" : "✓"}';
+      content: '${statusSymbol}';
       color: white;
       font-weight: bold;
       font-size: 16px;
@@ -252,13 +258,13 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
       <div class="brand-wrap">
         ${logoUrl
       ? `<img src="${logoUrl}" alt="${senderName} logo" class="brand-logo" />`
-      : `<div class="brand-fallback">${isAlert ? "!" : "✓"}</div>`}
+      : `<div class="brand-fallback">${statusSymbol}</div>`}
         <div>
           <p class="brand-title">${senderName}</p>
           <p class="brand-subtitle">Invoice Notification</p>
         </div>
       </div>
-      <span class="badge">${reminderLabel}</span>
+      <span class="badge"><span class="badge-symbol">${statusSymbol}</span>${reminderLabel}</span>
     </div>
 
     <!-- Header / Status Section -->
@@ -285,7 +291,7 @@ export function getInvoiceReminderTemplate(data: InvoiceTemplateData) {
         </tr>
         <tr class="data-row">
           <td class="label">Status</td>
-          <td class="value" style="color: ${badgeColor}">${statusLabel}</td>
+          <td class="value" style="color: ${badgeColor}">${statusSymbol} ${statusLabel}</td>
         </tr>
         <tr class="data-row">
           <td class="label">Due On</td>
