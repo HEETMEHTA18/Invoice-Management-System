@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
+import { getPublicDocsHref } from '@/lib/docs-config';
 import { cn } from '@/lib/utils';
 
 export default function Header() {
@@ -68,6 +69,9 @@ export default function Header() {
 
         {/* Right Section */}
         <div className='flex items-center gap-3 md:gap-4'>
+          <Button asChild variant='ghost' size='sm' className='hidden sm:flex text-[#596778] hover:text-[#102033] text-sm md:text-base'>
+            <a href={getPublicDocsHref()}>Docs</a>
+          </Button>
           <Button asChild variant='ghost' size='sm' className='hidden sm:flex text-[#596778] hover:text-[#8B5CF6] text-sm md:text-base'>
             <Link href='/login'>Sign In</Link>
           </Button>
@@ -105,6 +109,9 @@ export default function Header() {
               </a>
             ))}
             <div className='flex gap-2 pt-3 border-t border-[#E5E7EB] mt-3'>
+              <Button asChild variant='ghost' size='sm' className='w-full'>
+                <a href={getPublicDocsHref()}>Docs</a>
+              </Button>
               <Button asChild variant='secondary' size='sm' className='w-full'>
                 <Link href='/login'>Sign In</Link>
               </Button>

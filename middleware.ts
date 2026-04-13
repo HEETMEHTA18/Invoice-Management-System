@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
-
-  // Basic Security Headers
-  // CSP - Allow Vapi and common resources
+function withSecurityHeaders(response: NextResponse) {
   const cspHeader = `
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://vapi.ai https://cdn.jsdelivr.net;
@@ -32,6 +28,11 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
+export function middleware(request: NextRequest) {
+  void request;
+  return withSecurityHeaders(NextResponse.next());
+}
+
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/:path*"],
+  matcher: ["/docs/:path*", "/dashboard/:path*", "/api/:path*"],
 }

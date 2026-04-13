@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Mail, Linkedin, Twitter, Github, Facebook } from 'lucide-react';
+import { getPublicDocsHref } from '@/lib/docs-config';
 
 interface FooterLink {
   label: string;
@@ -29,10 +30,10 @@ export default function Footer() {
     {
       title: 'Resources',
       links: [
-        { label: 'Documentation', href: '/register' },
-        { label: 'API Reference', href: '/register' },
+        { label: 'Documentation', href: getPublicDocsHref() },
+        { label: 'Architecture', href: getPublicDocsHref('architecture') },
         { label: 'Blog', href: '/register' },
-        { label: 'Help Center', href: '/register' },
+        { label: 'SRS', href: getPublicDocsHref('srs') },
       ],
     },
     {
