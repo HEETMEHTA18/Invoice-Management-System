@@ -37,6 +37,7 @@
     "jspdf-autotable": "^5.0.7",
     "jsqr": "^1.4.0",
     "lucide-react": "^0.562.0",
+    "motion": "^12.38.0",
     "next": "16.1.4",
     "next-auth": "5.0.0-beta.30",
     "qrcode": "^1.5.4",

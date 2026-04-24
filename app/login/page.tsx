@@ -1,6 +1,3 @@
-
-"use client";
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,36 +5,34 @@ import { handleEmailSignIn } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-import { Suspense } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+export default async function Login({
+    searchParams,
+}: {
+    searchParams?: Promise<{ error?: string; success?: string }>;
+}) {
+    const session = await auth();
 
-function LoginContent() {
-    const { data: session, status } = useSession();
-    const router = useRouter();
-    const searchParams = useSearchParams();
+    if (session?.user) {
+        redirect("/dashboard");
+    }
 
-    useEffect(() => {
-        if (session?.user) {
-            router.replace("/dashboard");
-        }
-    }, [session, router]);
+    const params = (await searchParams) || {};
 
-    const errorMessages = useMemo(() => ({
+    const errorMessages = {
         signin_failed: "Invalid email or password",
         db_unavailable: "Database connection error. Please try again later.",
         invalid_email: "Please enter a valid business email format.",
-    }), []);
+    };
 
-    const successMessages = useMemo(() => ({
+    const successMessages = {
         registered: "Account created successfully! Please login.",
-    }), []);
+    };
 
-    const error = searchParams.get("error");
-    const success = searchParams.get("success");
+    const error = params.error;
+    const success = params.success;
     const errorMessage = error ? errorMessages[error as keyof typeof errorMessages] : null;
     const successMessage = success ? successMessages[success as keyof typeof successMessages] : null;
 
@@ -101,35 +96,5 @@ function LoginContent() {
                 </CardContent>
             </Card>
         </div>
-    );
-}
-
-export default function Login() {
-    return (
-        <Suspense fallback={
-            <div className="flex h-screen w-full items-center justify-center px-4">
-                <Card className="w-full max-w-sm">
-                    <CardHeader>
-                        <Skeleton className="h-8 w-1/2 mb-2" />
-                        <Skeleton className="h-4 w-3/4" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-4">
-                            <div className="grid gap-2">
-                                <Skeleton className="h-4 w-12" />
-                                <Skeleton className="h-10 w-full" />
-                            </div>
-                            <div className="grid gap-2">
-                                <Skeleton className="h-4 w-20" />
-                                <Skeleton className="h-10 w-full" />
-                            </div>
-                            <Skeleton className="h-10 w-full mt-2" />
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        }>
-            <LoginContent />
-        </Suspense>
     );
 }

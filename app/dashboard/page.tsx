@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type RevenueRange = "day" | "week" | "month";
+const DASHBOARD_CACHE_KEY = "dashboard:stats:v1";
 
 interface DashboardData {
     kpi: {
@@ -51,20 +52,38 @@ export default function DashboardPage() {
     const [error, setError] = useState("");
     const [revenueRange, setRevenueRange] = useState<RevenueRange>("month");
 
-    const fetchDashboardData = async (range: RevenueRange = revenueRange) => {
+    const fetchDashboardData = async (
+        range: RevenueRange = revenueRange,
+        options?: { background?: boolean }
+    ) => {
+        const background = options?.background ?? false;
         try {
-            setLoading(true);
+            if (!background) {
+                setLoading(true);
+            }
             setError("");
             const res = await fetch(`/api/dashboard/stats?revenueRange=${range}`);
             if (!res.ok) throw new Error("Failed to fetch dashboard data");
             const json = await res.json();
             setData(json);
             setRevenueRange((json.revenueRange as RevenueRange) || range);
+
+            try {
+                sessionStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({
+                    data: json,
+                    revenueRange: (json.revenueRange as RevenueRange) || range,
+                    cachedAt: Date.now(),
+                }));
+            } catch {
+                // Ignore cache persistence errors (e.g., private mode/storage restrictions)
+            }
         } catch (err) {
             console.error(err);
             setError("Failed to load dashboard data. Please try again.");
         } finally {
-            setLoading(false);
+            if (!background) {
+                setLoading(false);
+            }
         }
     };
 
@@ -75,7 +94,33 @@ export default function DashboardPage() {
     };
 
     useEffect(() => {
-        fetchDashboardData("month");
+        let cachedRange: RevenueRange = "month";
+        let hasCachedData = false;
+
+        try {
+            const raw = sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+            if (raw) {
+                const cached = JSON.parse(raw) as {
+                    data?: DashboardData;
+                    revenueRange?: RevenueRange;
+                    cachedAt?: number;
+                };
+
+                if (cached?.data) {
+                    hasCachedData = true;
+                    cachedRange = cached.revenueRange || "month";
+                    setData(cached.data);
+                    setRevenueRange(cachedRange);
+                    setLoading(false);
+                }
+            }
+        } catch {
+            // Ignore malformed cache
+        }
+
+        fetchDashboardData(hasCachedData ? cachedRange : "month", {
+            background: hasCachedData,
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -125,11 +170,11 @@ export default function DashboardPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                             <Skeleton className="h-5 w-36 mb-4" />
-                            <Skeleton className="h-[220px] w-full rounded-lg" />
+                            <Skeleton className="h-55 w-full rounded-lg" />
                         </div>
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                             <Skeleton className="h-5 w-28 mb-4" />
-                            <Skeleton className="h-[220px] w-full rounded-full mx-auto" style={{ maxWidth: 220 }} />
+                            <Skeleton className="h-55 w-full rounded-full mx-auto" style={{ maxWidth: 220 }} />
                         </div>
                     </div>
 
