@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,9 +13,7 @@ import {
   FileText,
   Loader2,
   CheckCircle2,
-  X,
   MessageSquare,
-  Save,
   Database,
 } from "lucide-react";
 import jsPDF from "jspdf";
@@ -147,13 +145,7 @@ function CreateInvoiceContent() {
   const [products, setProducts] = useState<ProductType[]>([]);
   const [updatingItemIndex, setUpdatingItemIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchSettings();
-    fetchCustomers();
-    fetchProducts();
-  }, []);
-
-  async function fetchProducts() {
+  const fetchProducts = useCallback(async () => {
     try {
       const res = await fetch("/api/products");
       if (res.ok) {
@@ -163,7 +155,7 @@ function CreateInvoiceContent() {
     } catch {
       console.error("Failed to fetch products");
     }
-  }
+  }, []);
 
   async function handleSyncProductMaster(index: number) {
     const item = items[index];
@@ -208,14 +200,14 @@ function CreateInvoiceContent() {
           toast.error("Failed to add product to master.");
         }
       }
-    } catch (err) {
+    } catch {
       toast.error("Error syncing product master.");
     } finally {
       setUpdatingItemIndex(null);
     }
   }
 
-  async function fetchCustomers() {
+  const fetchCustomers = useCallback(async () => {
     try {
       const res = await fetch("/api/customers");
       if (res.ok) {
@@ -225,7 +217,7 @@ function CreateInvoiceContent() {
     } catch {
       console.error("Failed to fetch customers");
     }
-  }
+  }, []);
 
   function handleClientNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     const name = e.target.value;
@@ -240,7 +232,7 @@ function CreateInvoiceContent() {
     }
   }
 
-  async function fetchSettings() {
+  const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch("/api/settings");
       if (res.ok) {
@@ -256,48 +248,13 @@ function CreateInvoiceContent() {
     } catch {
       // Settings not found, ignore
     }
-  }
+  }, [isEditing]);
 
-  function populateFormFromData(data: FetchedInvoiceData) {
-    if (data.invoiceNumber) setInvoiceNumber(data.invoiceNumber);
-    if (data.date) setDate(data.date);
-    if (data.dueDate) setDueDate(data.dueDate);
-    if (typeof data.autoReminderEnabled === "boolean") setAutoReminderEnabled(data.autoReminderEnabled);
-    if (Array.isArray(data.reminderOffsets)) {
-      setReminderOffsets(data.reminderOffsets.map((x) => Number(x)).filter((x: number) => Number.isInteger(x)));
-    }
-    if (typeof data.overdueReminderEnabled === "boolean") {
-      setOverdueReminderEnabled(data.overdueReminderEnabled);
-    }
-    if (data.overdueReminderEveryDays) {
-      setOverdueReminderEveryDays(Number(data.overdueReminderEveryDays));
-    }
-    if (data.reminderChannel) {
-      setReminderChannel(String(data.reminderChannel).toUpperCase() as ReminderChannel);
-    }
-    if (data.senderName) setSenderName(data.senderName);
-    if (data.senderEmail) setSenderEmail(data.senderEmail);
-    if (data.senderAddress) setSenderAddress(data.senderAddress);
-    if (data.clientName) setClientName(data.clientName);
-    if (data.clientEmail) setClientEmail(data.clientEmail);
-    if (data.clientPhone) setClientPhone(data.clientPhone);
-    if (data.clientAddress) setClientAddress(data.clientAddress);
-    if (data.currency) setCurrency(data.currency);
-    if (data.note) setNote(data.note);
-    if (data.taxRate) setTaxRate(Number(data.taxRate));
-    if (data.discount) setDiscount(Number(data.discount));
-    if (data.items && data.items.length > 0) {
-      setItems(
-        data.items.map((item) => ({
-          description: item.description || "",
-          hsnCode: item.hsnCode || "",
-          quantity: Number(item.quantity) || 1,
-          rate: Number(item.rate) || 0,
-          amount: Number(item.amount) || Number(item.quantity || 1) * Number(item.rate || 0),
-        }))
-      );
-    }
-  }
+  useEffect(() => {
+    void fetchSettings();
+    void fetchCustomers();
+    void fetchProducts();
+  }, [fetchSettings, fetchCustomers, fetchProducts]);
 
   useEffect(() => {
     if (isEditing) {
@@ -353,7 +310,7 @@ function CreateInvoiceContent() {
       } else {
         setError("Failed to fetch invoice details");
       }
-    } catch (err) {
+    } catch {
       setError("Error loading invoice");
     } finally {
       setLoading(false);

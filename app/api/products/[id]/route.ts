@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         });
         if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
         return NextResponse.json(product);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Failed to fetch product" }, { status: 500 });
     }
 }
@@ -42,7 +42,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         }
 
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Failed to update product" }, { status: 500 });
     }
 }
@@ -63,7 +63,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         }
 
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Failed to delete product" }, { status: 500 });
     }
 }
